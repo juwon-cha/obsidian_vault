@@ -2,3 +2,4 @@
 .obsidian/workspace-mobile.json
 .obsidian/cache/
 *.sync-conflict-*
+.DS_Store
