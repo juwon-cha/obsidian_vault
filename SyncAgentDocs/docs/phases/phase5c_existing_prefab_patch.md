@@ -15,7 +15,7 @@
 
 ### Step 1. 패치 대상 프리팹 목록 확인
 
-Phase 5-A 목록(`{to}/.claude/sync/{system}_PREFAB_PACKAGE_LIST.md`)에서
+Phase 5-A 목록(`{OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md`)에서
 🔵 수동 판단 항목을 읽는다.
 
 추가로, Phase 4에서 sync된 스크립트에서 기존 TO 프리팹을 참조하는 패턴을 탐색:
@@ -134,7 +134,7 @@ grep -rn "Show<\|Hide<" "{to}/Assets/_Project/1_Scripts" --include="*.cs" | grep
 
 ### Step 5. 패치 완료 리포트
 
-`{to}/.claude/sync/{system}_PREFAB_PATCH_REPORT.md` 파일 생성:
+`{OUTPUT_DIR}/{system}_PREFAB_PATCH_REPORT.md` 파일 생성:
 
 ```markdown
 # {system} 기존 프리팹 패치 리포트
@@ -162,6 +162,6 @@ grep -rn "Show<\|Hide<" "{to}/Assets/_Project/1_Scripts" --include="*.cs" | grep
 ## Phase 5-C 결과
 - 패치된 프리팹: N개
 - 스킵된 프리팹: N개
-- 리포트: {to}/.claude/sync/{system}_PREFAB_PATCH_REPORT.md
+- 리포트: {OUTPUT_DIR}/{system}_PREFAB_PATCH_REPORT.md
 - ⚠️ Unity 에디터에서 Inspector 확인 필요
 ```

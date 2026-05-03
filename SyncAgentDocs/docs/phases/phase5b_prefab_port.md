@@ -5,11 +5,11 @@
 - TO_PATH: {to}
 - SYSTEM: {system}
 - KEYS: {keys}
-- PREFAB_LIST: `{to}/.claude/sync/{system}_PREFAB_PACKAGE_LIST.md`
+- PREFAB_LIST: `{OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md`
 
 ## 참조 문서
 아래 파일을 Read로 읽는다:
-- `{to}/.claude/sync/{system}_PREFAB_PACKAGE_LIST.md`
+- `{OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md`
 
 ## 작업
 
@@ -345,7 +345,7 @@ m_StringReference:
 
 ### Step 7. 처리 완료 리포트 생성
 
-`{to}/.claude/sync/{system}_PREFAB_SYNC_REPORT.md` 파일로 저장:
+`{OUTPUT_DIR}/{system}_PREFAB_SYNC_REPORT.md` 파일로 저장:
 
 ```markdown
 ## Phase 5-B sync 리포트
@@ -409,5 +409,5 @@ m_StringReference:
 - 서브 스프라이트 처리: N건 (GUID 교체 N / FROM 복사 N)
 - 신규 에셋: N개
 - 사후 검증: ✅ 미해결 GUID 없음 / ⚠️ 미해결 GUID N건 (재복사 N건 / 수동 확인 필요 N건)
-- 리포트: {to}/.claude/sync/{system}_PREFAB_SYNC_REPORT.md
+- 리포트: {OUTPUT_DIR}/{system}_PREFAB_SYNC_REPORT.md
 ```

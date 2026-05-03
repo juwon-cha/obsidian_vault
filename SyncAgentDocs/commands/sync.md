@@ -12,7 +12,7 @@ description: Unity 프로젝트 간 시스템 sync. 페이즈별 실행 + 컨텍
 
 ```bash
 pwd
-cat .claude/sync/.sync_state.json 2>/dev/null || echo "NO_STATE"
+cat .claude/migration/.sync_state.json 2>/dev/null || echo "NO_STATE"
 ```
 
 **상태 파일이 있고 `next_phase`가 `done`이 아닌 경우:**
@@ -39,16 +39,30 @@ cat .claude/sync/.sync_state.json 2>/dev/null || echo "NO_STATE"
 `$ARGUMENTS`에 `--from`이 포함된 경우 아래 플래그를 파싱한다:
 
 ```
---from  <경로>        소스 프로젝트 루트 (필수)
+--from  <소스>        소스 프로젝트 (필수). 세 가지 형태 지원:
+                        로컬 경로:     /Volumes/repo/BunkerDefense
+                        remote 브랜치: origin/temp-bunker
+                        remote URL:   git@github.com:org/BunkerDefense.git
+--branch <브랜치>     --from이 remote URL일 때 브랜치 지정 (생략 시 기본 브랜치)
 --to    <경로>        대상 프로젝트 루트 (생략 시 현재 디렉토리)
---system <이름>       sync할 시스템명 (필수)
---keys  <키워드,...>  쉼표 구분 키워드 (필수)
+--system <이름>       sync할 시스템명 (필수). 영문으로 작성.
+                        예) Relic, BattlePass, Preset, HordeDungeon
+--keys  <키워드,...>  쉼표 구분 키워드 (--plan 사용 시 생략 가능)
 --phase <4|5a|5b|5c> 실행 범위 (생략 시 대화로 선택)
+--plan  <경로>        기존 분석 문서 경로. 지정 시 Phase 1~3 건너뛰고 Phase 4로 바로 실행.
+                        obsidian 경로: ~/Documents/obsidian_vault/Sync/2026-05-03_Relic/{system}_SYNC_PLAN.md
+                        프로젝트 경로: .claude/migration/{system}_SYNC_PLAN.md
+                        절대 경로:    /any/path/to/{system}_SYNC_PLAN.md
+--output <경로>       산출물 저장 디렉토리 (생략 시 자동 결정)
+                        기본값: ~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{system}/
+                        예) --output ~/Documents/obsidian_vault/Sync/2026-05-03_Relic
 --cancel             진행 중인 sync 작업 취소 및 상태 초기화
+--cleanup            sync 완료 후 임시 worktree 정리
 ```
 
 `--cancel` 플래그가 있는 경우 → [취소 처리](#공통--취소-처리)로 이동
-그 외 → [경로 검증](#공통--경로-검증)으로 이동
+`--plan` 플래그가 있는 경우 → [플랜 파일 검증](#공통--플랜-파일-검증)으로 이동
+그 외 → [FROM 검증](#공통--from-검증)으로 이동
 
 ---
 
@@ -79,18 +93,52 @@ ls Assets 2>/dev/null && echo "UNITY_PROJECT" || echo "NOT_UNITY"
    예) /Volumes/solidigm/repo/WiggleDefender
 ```
 
-### Step 2. FROM 경로 입력
+### Step 2. FROM 입력
 ```
-📁 FROM (소스 프로젝트) 경로를 입력해줘:
-   예) /Volumes/solidigm/repo/BunkerDefense
+📁 FROM (소스 프로젝트)를 입력해줘. 아래 세 가지 형태 모두 가능해:
+
+   로컬 경로:     /Volumes/repo/BunkerDefense
+   remote 브랜치: origin/temp-bunker
+   remote URL:   git@github.com:org/BunkerDefense.git
 ```
-→ 입력받으면 즉시 검증
+→ 입력받으면 즉시 타입 감지 및 검증 (phase0_fetch_setup.md 참조)
 
 ### Step 3. 시스템명 입력
 ```
 🎯 sync할 시스템명을 입력해줘:
    예) BattlePass, Preset, Loadout, HoreDungeon
 ```
+
+### Step 3-B. 기존 분석 문서 자동 감지
+
+시스템명이 확정되면 즉시 아래 경로에서 기존 분석 문서를 탐색한다:
+
+```bash
+# 1. 프로젝트 내부 표준 경로
+ls "{to}/.claude/migration/{system}_SYNC_PLAN.md" 2>/dev/null && echo "FOUND_INTERNAL"
+
+# 2. 프로젝트 내부 대소문자 변형 탐색
+find "{to}/.claude/migration/" -iname "*{system}*plan*" -o -iname "*{system}*계획*" 2>/dev/null | head -3
+```
+
+**문서가 발견된 경우:**
+```
+📋 기존 분석 문서를 발견했어:
+   {발견된 경로} ({파일 수정일})
+
+어떻게 할까?
+  y → 이 문서 기반으로 Phase 4부터 바로 시작  💡 토큰 절약
+  p → 다른 경로의 문서를 직접 지정
+  n → Phase 0부터 새로 분석
+```
+
+→ `y` 응답: 발견된 문서를 plan으로 확정 → [플랜 파일 검증](#공통--플랜-파일-검증)으로 이동
+→ `p` 응답: 경로 직접 입력 받기 → [플랜 파일 검증](#공통--플랜-파일-검증)으로 이동
+→ `n` 응답: Step 4로 이동 (전체 분석 진행)
+
+**문서가 없는 경우:** Step 4로 이동
+
+---
 
 ### Step 4. 키워드 입력
 ```
@@ -116,6 +164,79 @@ AskUserQuestion 도구로 선택지를 보여준다:
     description: "프리팹을 FROM→TO로 직접 복사. GUID 교체·스프라이트 처리 포함."
   - label: "Phase 0~5-C — 스크립트 + 프리팹 자동 sync + 기존 프리팹 패치"
     description: "5-B에 추가로, 기존 TO 프리팹에 FROM의 변경사항을 미리보기 후 패치."
+
+---
+
+## 공통 — 플랜 파일 검증
+
+`--plan` 플래그가 있거나, 마법사에서 기존 문서를 선택한 경우.
+
+### 1. 파일 존재 확인
+```bash
+ls "{plan_path}" > /dev/null 2>&1 && echo "EXISTS" || echo "NOT_FOUND"
+```
+
+파일이 없으면:
+```
+❌ 분석 문서를 찾을 수 없어: {plan_path}
+경로를 다시 확인해줘. 또는 "새로 분석" 이라고 말하면 Phase 0부터 진행할게.
+```
+
+### 2. 문서 내용 요약 출력
+
+파일이 있으면 Read 도구로 읽고 아래 형식으로 요약:
+```
+📋 Plan document found: {plan_path}
+
+   System        : {문서에서 파악한 시스템명}
+   Target files  : ~{N} files
+   Key conversions: {핵심 변환 항목 3줄 요약}
+   Blockers      : {있으면 목록, 없으면 "none"}
+
+Phase 1~3 (file discovery / analysis / plan generation) will be skipped.
+Proceeding: Phase 0 (source access) → Phase 4 (execution).
+
+Type "start" to begin, or "re-analyze" to run full analysis from Phase 0.
+```
+
+### 3. 상태 파일에 plan 경로 저장
+
+확인 후 상태 파일에 기록하고 `next_phase`를 `"0_plan"`으로 설정:
+```bash
+DATE=$(date +%Y-%m-%d)
+OUTPUT_DIR="${HOME}/Documents/obsidian_vault/Sync/${DATE}_{system}"
+[ -n "{output}" ] && OUTPUT_DIR="{output}"
+mkdir -p "$OUTPUT_DIR"
+
+mkdir -p "{to}/.claude/migration"
+python3 -c "
+import json
+state = {
+  'from': '{from}',
+  'from_local': '',
+  'to': '{to}',
+  'system': '{system}',
+  'keys': '',
+  'phase_limit': '{phase}',
+  'output_dir': '$OUTPUT_DIR',
+  'next_phase': '0_plan',
+  'plan_path': '{plan_path}',
+  'completed_phases': {},
+  'worktree_created': False,
+  'worktree_path': ''
+}
+with open('{to}/.claude/migration/.sync_state.json', 'w') as f:
+    json.dump(state, f, ensure_ascii=False, indent=2)
+"
+```
+
+### 4. 플랜 모드 페이즈 순서
+
+| next_phase | 작업 | 비고 |
+|------------|------|------|
+| `0_plan` | Phase 0 실행 (소스 접근 + worktree만) | 파일 탐색 없이 접근만 |
+| `4` | Phase 4 실행 (플랜 문서 기반으로 바로 실행) | 플랜 문서 전체를 Agent 프롬프트에 포함 |
+| `5a/5b/5c` | Phase 5 실행 | phase_limit에 따라 |
 
 ---
 
@@ -186,20 +307,31 @@ rm "{TO_PATH}/.claude/sync/.sync_state.json"
 
 ---
 
-## 공통 — 경로 검증
+## 공통 — FROM 검증
 
-경로 입력이 들어올 때마다 즉시 확인:
+FROM 입력이 들어올 때마다 타입을 감지하고 즉시 검증한다:
 
+**타입 감지 규칙:**
+
+| 입력 패턴 | 타입 | Phase 0 처리 |
+|-----------|------|--------------|
+| `/` 또는 `~` 시작 | 로컬 경로 | 경로 존재 + Assets 폴더 확인 |
+| `<remote>/` 형태 (예: `origin/temp-bunker`) | remote 브랜치 | `git fetch` + 임시 worktree 생성 |
+| `git@` 또는 `https://` 시작 | remote URL | `git clone --depth=1` + 임시 worktree 생성 |
+
+**로컬 경로 검증:**
 ```bash
-ls "{입력경로}" > /dev/null 2>&1 && echo "EXISTS" || echo "NOT_FOUND"
-ls "{입력경로}/Assets" > /dev/null 2>&1 && echo "UNITY" || echo "NOT_UNITY"
+ls "{from}" > /dev/null 2>&1 && echo "EXISTS" || echo "NOT_FOUND"
+ls "{from}/Assets" > /dev/null 2>&1 && echo "UNITY" || echo "NOT_UNITY"
 ```
 
 | 결과 | 출력 | 동작 |
 |------|------|------|
 | 존재 + Unity ✅ | `✅ {프로젝트명} 확인됨` | 다음 Step으로 이동 |
-| 경로 없음 ❌ | `❌ 경로를 찾을 수 없어: {경로}` | 같은 질문 재출력 |
+| 경로 없음 ❌ | `❌ 경로를 찾을 수 없어: {from}` | 같은 질문 재출력 |
 | Unity 아님 ⚠️ | `⚠️ Unity 프로젝트가 아닌 것 같아 (Assets 폴더 없음)` | 같은 질문 재출력 |
+
+**remote 타입:** Phase 0에서 worktree 생성 후 검증 — 여기서는 형식만 확인 후 수락.
 
 ---
 
@@ -207,21 +339,44 @@ ls "{입력경로}/Assets" > /dev/null 2>&1 && echo "UNITY" || echo "NOT_UNITY"
 
 모든 항목이 수집되면:
 
-### 1. 상태 파일 저장
+### 1. 출력 디렉토리 결정
+
+`--output` 플래그가 있으면 해당 경로를, 없으면 자동 생성한다:
+
 ```bash
-mkdir -p "{TO_PATH}/.claude/sync"
-cat > "{TO_PATH}/.claude/sync/.sync_state.json" << 'STATEOF'
+if [ -n "{output}" ]; then
+  OUTPUT_DIR="{output}"
+else
+  DATE=$(date +%Y-%m-%d)
+  OUTPUT_DIR="$HOME/Documents/obsidian_vault/Sync/${DATE}_{system}"
+fi
+mkdir -p "$OUTPUT_DIR"
+echo "OUTPUT_DIR=$OUTPUT_DIR"
+```
+
+> 산출물(SYNC_PLAN.md, PREFAB_PACKAGE_LIST.md 등)은 모두 `OUTPUT_DIR`에 저장된다.
+> `.sync_state.json`은 재실행 복원용이므로 프로젝트 내부에만 저장한다.
+
+### 2. 상태 파일 저장
+```bash
+mkdir -p "{TO_PATH}/.claude/migration"
+cat > "{TO_PATH}/.claude/migration/.sync_state.json" << 'STATEOF'
 {
   "from": "{FROM_PATH}",
+  "from_local": "",
   "to": "{TO_PATH}",
   "system": "{system}",
   "keys": "{keys}",
   "phase_limit": "{phase}",
+  "output_dir": "{OUTPUT_DIR}",
   "next_phase": "0",
-  "completed_phases": {}
+  "completed_phases": {},
+  "worktree_created": false,
+  "worktree_path": ""
 }
 STATEOF
 ```
+> `from_local`과 `worktree_*` 필드는 Phase 0에서 remote 접근 시 자동으로 채워진다.
 
 ### 2. 권한 승인 방식 선택
 
@@ -285,14 +440,16 @@ AskUserQuestion 도구로 2단계 질문을 보여준다:
 │  ✅  sync 설정 확인                                   │
 ├─────────────────────────────────────────────────────┤
 │  FROM    : {from}                                    │
+│  (로컬)  : Phase 0에서 확정 예정                      │
 │  TO      : {to}                                      │
-│  시스템명 : {system}                                  │
-│  키워드   : {keys}                                    │
-│  실행 범위: Phase 0~{phase}                           │
+│  System  : {system}                                  │
+│  Keywords: {keys}                                    │
+│  Phase   : 0~{phase}                                 │
+│  Output  : {OUTPUT_DIR}                              │
 │  권한 방식: {선택한 옵션}                              │
 │                                                      │
 │  💾 설정이 자동 저장됨                                │
-│     /clear 후 /sync 재실행 시 이어서 진행 가능     │
+│     /clear 후 /sync 재실행 시 이어서 진행 가능        │
 └─────────────────────────────────────────────────────┘
 
 "시작" 이라고 말하면 Phase 0부터 진행할게.
@@ -316,11 +473,13 @@ AskUserQuestion 도구로 2단계 질문을 보여준다:
    ```
    subagent_type: general-purpose
    prompt: [페이즈 문서 전체] + 아래 파라미터:
-     FROM_PATH = {from}
-     TO_PATH   = {to}
-     SYSTEM    = {system}
-     KEYS      = {keys}
+     FROM       = {from}             ← 원본 입력값 (remote URL/브랜치/로컬 경로)
+     FROM_LOCAL = {from_local}       ← Phase 0에서 확정된 실제 로컬 경로
+     TO_PATH    = {to}
+     SYSTEM     = {system}
+     KEYS       = {keys}
    ```
+   > Phase 1 이후 파일 탐색은 FROM_LOCAL을 사용한다.
 
 3. Agent가 반환한 요약 결과를 사용자에게 보고한다.
 
@@ -382,20 +541,44 @@ Phase 3 완료 시 아래 안내 출력:
   /sync
       순차 대화형 마법사 시작 (또는 이전 작업 이어서 진행)
 
-  /sync --from <경로> --system <이름> --keys <키워드,...>
+  /sync --from <소스> --system <이름> --keys <키워드,...>
       TO는 현재 프로젝트 자동 감지, Phase는 대화로 선택
 
-  /sync --from <경로> --to <경로> --system <이름> --keys <키워드,...> --phase <4|5a|5b|5c>
+  /sync --from <소스> --to <경로> --system <이름> --keys <키워드,...> --phase <4|5a|5b|5c>
       모든 값 지정, 즉시 실행
 
   /sync --cancel
       진행 중인 sync 작업 취소. 변경사항 되돌리기 또는 상태 파일만 삭제 선택 가능.
 
-예시:
-  /sync --from /Volumes/repo/BunkerDefense \
-           --system BattlePass \
-           --keys BattlePassManager,BattlePassTypes,BattlePass \
-           --phase 5a
+  /sync --cleanup
+      sync 완료 후 임시 worktree 정리.
+
+--from 예시:
+  로컬 경로:     --from /Volumes/repo/BunkerDefense
+  remote 브랜치: --from origin/temp-bunker
+  remote URL:   --from git@github.com:TeamSparta/BunkerDefense.git
+  URL + 브랜치:  --from git@github.com:TeamSparta/BunkerDefense.git --branch develop
+
+전체 예시:
+  # 기본 (전체 분석 + 산출물 자동 저장)
+  /sync --from origin/temp-bunker \
+        --system BattlePass \
+        --keys BattlePassManager,BattlePassTypes,BattlePass \
+        --phase 5a
+  # → 산출물: ~/Documents/obsidian_vault/Sync/2026-05-03_BattlePass/
+
+  # 기존 분석 문서 활용 (Phase 1~3 스킵, 토큰 절약)
+  /sync --from origin/temp-bunker \
+        --system BattlePass \
+        --plan ~/Documents/obsidian_vault/Sync/2026-05-03_BattlePass/BattlePass_SYNC_PLAN.md \
+        --phase 4
+
+  # 출력 경로 직접 지정
+  /sync --from origin/temp-bunker \
+        --system BattlePass \
+        --keys BattlePassManager,BattlePassTypes \
+        --output ~/Documents/obsidian_vault/Sync/2026-05-03_BattlePass \
+        --phase 5a
 
 💡 컨텍스트 절약 팁:
    각 페이즈 완료 후 /clear 를 실행해도 설정이 보존돼.

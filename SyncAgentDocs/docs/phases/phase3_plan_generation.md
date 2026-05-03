@@ -22,7 +22,15 @@ grep -n "ManagerDefinition" "{to}/Assets/_Project/1_Scripts/Core/Managers/Manage
 ```
 
 ### 생성할 파일
-`{to}/.claude/sync/{system}_SYNC_PLAN.md`
+
+출력 경로는 상태 파일의 `output_dir` 값을 사용한다:
+```bash
+OUTPUT_DIR=$(python3 -c "import json; print(json.load(open('{to}/.claude/migration/.sync_state.json'))['output_dir'])")
+mkdir -p "$OUTPUT_DIR"
+```
+
+저장 경로: `{OUTPUT_DIR}/{system}_SYNC_PLAN.md`
+> 파일명 규칙: 영문만 사용. 예) `Relic_SYNC_PLAN.md`, `BattlePass_SYNC_PLAN.md`
 
 SYSTEM_ANALYSIS_TEMPLATE.md를 기반으로 아래 섹션을 채운다:
 - **섹션 0**: grep 전수조사 결과 표 (FROM 파일 | 역할 | FROM 전용 패턴 | sync 유형 | TO 처리 방법)
@@ -39,7 +47,7 @@ SYSTEM_ANALYSIS_TEMPLATE.md를 기반으로 아래 섹션을 채운다:
 
 ```
 ## Phase 3 결과
-- 생성 파일: {to}/.claude/sync/{system}_SYNC_PLAN.md
+- 생성 파일: {OUTPUT_DIR}/{system}_SYNC_PLAN.md
 - 섹션별 핵심 내용:
   - 섹션 0: FROM 파일 N개 (DIRECT N / ADAPTED N / PARTIAL N / BLOCKED N)
   - 섹션 3: ⚠️ 항목 목록

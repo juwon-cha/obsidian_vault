@@ -109,7 +109,7 @@ FROM 프리팹과 TO 프리팹을 모두 Read로 읽어서 비교:
 ---
 
 ### 생성할 파일
-`{to}/.claude/sync/{system}_PREFAB_PACKAGE_LIST.md`
+`{OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md`
 
 ```markdown
 ## 1. sync할 프리팹 목록 (의존성 순)
@@ -138,7 +138,7 @@ FROM 프리팹과 TO 프리팹을 모두 Read로 읽어서 비교:
 
 ```
 ## Phase 5-A 결과
-- 생성 파일: {to}/.claude/sync/{system}_PREFAB_PACKAGE_LIST.md
+- 생성 파일: {OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md
 - 재귀 스캔 발견 프리팹 총 N개:
   - 신규 복사: N개
   - ⚠️ 업데이트 필요 (TO에 있지만 FROM이 더 새 버전): N개

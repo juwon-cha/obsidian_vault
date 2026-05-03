@@ -42,25 +42,35 @@ Relic(유물) 시스템을 BunkerDefense(BD)에서 WiggleDefender(WD)로 sync한
 10. 리소스: Resources.Load 금지 → ResourceManager.LoadResource<T>()
 
 [WD 실제 코드 검증 결과 — 반드시 준수]
-- Managers.cs priority: RelicManager는 334 ("Lobby") — ContentUnlockManager(321) 이후
-- DamageCalculationManager.RelicEffect.cs: lazy-init 캐싱 필수 (priority 175로 RelicManager보다 먼저 초기화됨)
-  → ChipEffect.cs 패턴 참고: _relicManager = Managers.Instance?.GetManager<RelicManager>()  null-check 후 반환
-- ETargetItemType.Relic: 이미 존재 — 추가 금지. TargetDisplayComponent.cs에 case만 추가
-- Core/Gacha/ 폴더: WD에 없음 — RelicGachaProbabilityDataSource.cs는 sync 불가
-  → RelicGachaProbabilityPopup.cs 신규 작성으로 대체 (RelicManager에서 확률 데이터 직접 조회)
-- GachaManager: 칩 전용, Relic 뽑기와 무관 — EGachaType.Relic 추가해도 GachaManager 로직에 끼워 넣지 않음
-- MinionLevelBox.cs를 RelicLevelBox.cs의 LocalizationManager 적용 참고 파일로 활용
+- Managers.cs priority: RelicManager는 334 ("Lobby") — 삽입 위치: ChipEffectManager(333) 다음 줄
+- GetManager 패턴: BaseManager 상속 클래스 내부에서는 GetManager<T>() 단축형 사용 (ChipEffect.cs 실제 패턴)
+  → 외부에서는 Managers.Instance.GetManager<T>(), 내부에서는 GetManager<T>()
+- DamageCalculationManager.RelicEffect.cs: lazy-init 필수 (priority 175 vs RelicManager 334)
+  → if (_relicManager == null) _relicManager = GetManager<RelicManager>();  // 단축형
+- ETargetItemType.Relic: 이미 존재 — 추가 금지. TargetDisplayComponent.cs switch에 case만 추가
+- EAcquisitionRouteType.RelicGacha: WD에 존재하는 enum에 추가 필요
+  → 로컬라이제이션 키: route_relicgacha, AcquisitionRouteManager.GetTargetUIType() switch에도 case 추가
+- Core/Gacha/ 폴더: WD에 없음 → RelicGachaProbabilityPopup.cs 신규 작성으로 대체
+- GachaManager: 칩 전용 — EGachaType.Relic 추가해도 GachaManager 로직 수정 금지
+- ContentUnlockManager._unlockConditions 배열 (line ~253)에 Feature_Relic 조건 추가
+- RedDotManager.EnsureEssentialNodes()에 Lobby.Relic.*, Lobby.Relic.RelicGacha.* 노드 추가
+- UnitController 신화 스킬 훅: StartBehavior() 말미에 ApplyRelicSkills() 호출
+  → InitializeAsync() 아님 주의 (유닛 데이터 설정 이후이므로 StartBehavior가 올바른 위치)
+- Archon: 기존 partial 14개 — ArchonController.RelicSkill.cs 신규 partial 추가, LaserType.RelicFan은 Types.cs에 추가
 
 [sync 금지 파일]
 - RelicGachaProbabilityDataSource.cs (IGachaProbabilityDataSource 인터페이스 WD에 없음)
 
 [신규 작성 필요 파일]
-- RelicGachaProbabilityPopup.cs (RelicManager에서 확률 테이블 직접 가져오는 WD 스타일 팝업)
+- RelicGachaProbabilityPopup.cs (RelicManager에서 확률 테이블 직접 조회하는 WD 스타일 팝업)
+- ArchonController.RelicSkill.cs (Archon 전용 신규 partial)
 
-[BLOCKER — sync 시작 전 기획 확인 필요]
-- Feature_Relic 해금 레벨/조건 (ContentUnlockManager에 추가 시 필요)
-- Localization 키 목록 (데이터시트에 등록 여부 확인)
-- 이 항목들은 TO-DO 주석으로 남기고 나머지 sync 진행
+[BLOCKER — sync 시작 전 확인 필수, TODO 주석으로 마킹 후 진행]
+- [BLOCKER-1] Feature_Relic 해금 레벨 (ContentUnlockManager _unlockConditions 배열)
+- [BLOCKER-2] Localization 키 17종 (relic_* 접두사) 데이터시트 등록 여부
+- [BLOCKER-3] route_relicgacha 로컬라이제이션 키 등록 여부
+- [BLOCKER-4] 신화 스킬 rank 0/5/10 effect 정의서 — arg1~7 매핑값 (Phase 7 진입 전 BD 소스 확인 필수)
+- [BLOCKER-5] 프리팹/스프라이트 에셋 (Phase 9, C# 완성 후 별도)
 ```
 
 ---
@@ -108,7 +118,7 @@ BunkerDefense/Assets/_Project/1_Scripts/
 
 ### Phase 3 — sync 계획 생성
 ```
-아래 Relic_sync_계획.md의 sync 순서(Phase 1~9)를 기반으로 SYNC_PLAN.md 생성.
+아래 Relic_SYNC_PLAN.md의 sync 순서(Phase 1~9)를 기반으로 SYNC_PLAN.md 생성.
 
 각 파일 항목에:
 - 원본 경로 (BD)
@@ -126,17 +136,40 @@ BunkerDefense/Assets/_Project/1_Scripts/
 
 실행 순서:
 1. Phase 1 (Enum/타입) → 컴파일 확인
+   - ERelicGrade, ERelicSkillType, ECurrencyType(Relic 재화), EGachaType.Relic
+   - EAcquisitionRouteType.RelicGacha  ← ✅ WD에 존재하는 enum에 추가
+   - Feature_Relic (TODO: 해금 레벨 BLOCKER-1)
+   - GameEventTypes 6종
+
 2. Phase 2 (DataSheet/SO) → 컴파일 확인
+
 3. Phase 3 (RelicManager, RelicGachaService, DamageCalculationManager.RelicEffect.cs)
-4. Phase 4 (Managers.cs, ContentUnlockManager, RedDotManager 등)
+   - DamageCalculationManager.RelicEffect.cs: GetManager<T>() 단축형 사용
+   - if (_relicManager == null) _relicManager = GetManager<RelicManager>();
+
+4. Phase 4 (기존 매니저 연동)
+   - Managers.cs: ChipEffectManager(333) 다음 줄에 RelicManager(334) 추가
+   - ContentUnlockManager.cs: _unlockConditions 배열 line ~253에 Feature_Relic 추가
+   - RedDotManager.cs: EnsureEssentialNodes() 튜플 배열에 4개 노드 추가
+   - AcquisitionRouteManager.cs: GetTargetUIType() switch에 RelicGacha case 추가
+
 5. Phase 5 (UI 파일들, RelicGachaProbabilityPopup 신규 작성 포함)
+   - 모든 하드코딩 문자열 → LocalizationManager.GetLocalizedText("relic_*") (BLOCKER-2)
+   - async void → async UniTaskVoid 전환 확인
+   - DOTween.ToUniTask() → AsyncWaitForCompletion() 전환 확인
+
 6. Phase 6 (LobbyMainUI, UnitUpgradeUI, TargetDisplayComponent case 추가)
-7. Phase 7 (UnitController virtual 메서드 + 11개 유닛 신화 스킬)
+
+7. Phase 7 (신화 스킬) — BLOCKER-4 확인 후 진입
+   - UnitController.StartBehavior() 말미에 ApplyRelicSkills() 추가
+   - Archon: ArchonController.RelicSkill.cs 신규 partial, LaserType.RelicFan은 Types.cs에 추가
+   - 11개 유닛 각각 RelicSkillType 프로퍼티 + OnApplyRelicRankEffect() override
+
 8. Phase 8 (JsonToSO.cs 에디터 도구)
 
 각 Phase 완료 후:
 - 컴파일 에러 목록 확인
-- BLOCKER 항목은 TODO 주석 처리 후 계속 진행
+- BLOCKER 항목은 // TODO(BLOCKER-N): 설명 형식으로 주석 처리 후 계속 진행
 ```
 
 ### Phase 5a — 프리팹 목록 생성
@@ -158,22 +191,30 @@ sync 필요한 프리팹 목록 문서 생성.
 
 아래 항목이 모두 충족되면 sync 완료:
 
-- [ ] WD에서 컴파일 에러 0개 (BLOCKER 주석 제외)
+- [ ] WD에서 컴파일 에러 0개 (BLOCKER TODO 주석 제외)
 - [ ] RelicManager `InitializeAsync()` 정상 호출 확인
 - [ ] 뽑기 1회 실행 → `RelicGachaDrawn` 이벤트 발행 확인
-- [ ] 유물 장착 → `DamageCalculationManager.GetRelicUnitDamageBonus()` 값 반영 확인
+- [ ] 유물 장착 → `DamageCalculationManager.GetRelicUnitDamageBonus()` null-safe 반환 확인
 - [ ] `TargetDisplayComponent`에서 `ETargetItemType.Relic` case 처리 확인
-- [ ] BLOCKER 항목 TODO 주석으로 전부 마킹됨
-- [ ] Phase 9 프리팹 sync 작업 목록 생성됨 (실제 sync은 별도 작업)
+- [ ] `AcquisitionRouteManager` → `EAcquisitionRouteType.RelicGacha` → `RelicGachaMainUI` 연결 확인
+- [ ] `RedDotManager` → `Lobby.Relic.*` 노드 4개 등록 확인
+- [ ] BLOCKER-1~5 항목 전부 `// TODO(BLOCKER-N):` 주석으로 마킹됨
+- [ ] Phase 9 프리팹 목록 문서 생성됨 (`{OUTPUT_DIR}/Relic_PREFAB_PACKAGE_LIST.md`)
+- [ ] DOTween `AsyncWaitForCompletion()` 전환 완료 (ToUniTask 0개)
+- [ ] `async void` 0개 (async UniTaskVoid로 전환 완료)
 
 ---
 
 ## 참고 문서
 
-- `Relic_sync_계획.md` — 전체 파일 목록, 변환 규칙, 체크리스트
-- `PotingAgentDocs/commands/sync.md` — /sync 슬래시 커맨드
-- `PotingAgentDocs/docs/WD_SYNC_GUIDE.md` — WD sync 전반 가이드
-- `PotingAgentDocs/docs/SYNC_PROMPT_TEMPLATE.md` — 범용 sync 프롬프트 템플릿
-- `PotingAgentDocs/docs/phases/` — 페이즈별 독립 실행 문서
-- `WiggleDefender/Assets/_Project/1_Scripts/Core/Managers/DamageCalculationManager.ChipEffect.cs` — lazy-init 패턴 참고
+- `~/Documents/obsidian_vault/Sync/2026-05-03_Relic/Relic_SYNC_PLAN.md` — 전체 파일 목록, 변환 규칙, 체크리스트
+- `~/.claude/commands/sync.md` — /sync 슬래시 커맨드 (글로벌)
+- `~/Documents/obsidian_vault/SyncAgentDocs/docs/WD_SYNC_GUIDE.md` — WD sync 전반 가이드
+- `~/Documents/obsidian_vault/SyncAgentDocs/docs/SYNC_PROMPT_TEMPLATE.md` — 범용 sync 프롬프트 템플릿
+- `~/Documents/obsidian_vault/SyncAgentDocs/docs/phases/` — 페이즈별 독립 실행 문서
+- `WiggleDefender/Assets/_Project/1_Scripts/Core/Managers/DamageCalculationManager.ChipEffect.cs` — lazy-init + GetManager<T>() 단축형 패턴 참고
 - `WiggleDefender/Assets/_Project/1_Scripts/UI/Minion/Upgrade/MinionLevelBox.cs` — LocalizationManager 패턴 참고
+- `WiggleDefender/Assets/_Project/1_Scripts/Core/Managers/RedDotManager.cs` — EnsureEssentialNodes() 노드 추가 위치 및 패턴 참고
+- `WiggleDefender/Assets/_Project/1_Scripts/Core/Managers/ContentUnlockManager.cs` — _unlockConditions 배열 (line ~253) 추가 위치 참고
+- `WiggleDefender/Assets/_Project/1_Scripts/Core/Controllers/Archon/ArchonController.Types.cs` — LaserType enum 추가 위치 참고
+- `WiggleDefender/Assets/_Project/1_Scripts/Core/Controllers/BaseClass/UnitController.cs` — StartBehavior() 훅 포인트 참고
