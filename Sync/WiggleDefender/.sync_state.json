@@ -1,0 +1,19 @@
+{
+  "from": "origin/temp-bunker",
+  "from_local": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker",
+  "to": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender",
+  "system": "Relic",
+  "keys": "RelicManager,RelicGachaService,RelicData,RelicSaveData,RelicMainUI,RelicUpgradeUI,Relic",
+  "phase_limit": "5c",
+  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-04_Relic",
+  "reference_plan": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-03_Relic/Relic_SYNC_PLAN.md",
+  "next_phase": "4",
+  "completed_phases": {
+    "0": "remote fetch + worktree 생성 완료",
+    "1": "BD Relic 파일 50개 탐색 완료, WD 수정 대상 28개 확인",
+    "2": "핵심 파일 심층 분석 완료 — 변환 규칙 확정, ECurrencyType 충돌 검토 필요",
+    "3": "SYNC_PLAN.md 생성 완료 (2026-05-04_Relic, migration 경로 포함)"
+  },
+  "worktree_created": true,
+  "worktree_path": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker"
+}
