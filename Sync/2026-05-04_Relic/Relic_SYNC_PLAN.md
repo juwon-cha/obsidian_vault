@@ -22,7 +22,9 @@
 ## 1. 시스템 개요
 
 Relic(유물) 시스템은 수집/장착/강화로 전투력을 증강하는 후기 콘텐츠.
-**4개 슬롯 장착**, **등급 (Epic/Legendary/Mythic)**, **랭크업(1~10)**, **강화(0~100레벨)**, **뽑기(가챠)**, **신화 전용 스킬**로 구성.
+**4개 슬롯 장착**, **등급 (Rare/Epic/Legendary/Mythic)**, **랭크업(1~10)**, **강화(0~100레벨)**, **뽑기(가챠)**, **신화 전용 스킬**로 구성.
+
+> ⚠️ **Rare 등급 주의**: `feature/relic_skill` 브랜치(원래 sync 소스)에는 Rare 없음. `dev` 브랜치에서 추가됨 (commit `a4ddec289f`). WD 이식 시 dev 기준으로 추가 적용 완료.
 
 ```
 GachaManager (뽑기 담당 - BD 구조)
@@ -522,8 +524,8 @@ WD 경로: `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Pro
 
 | 파일 (WD 절대 경로) | 추가 내용 |
 |------|-----------|
-| `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/GameEnums.cs` | `ERelicGrade { Epic=0, Legendary=1, Mythic=2 }` enum 추가<br>`ERelicSkillType { None, TurretDelayedExplosion, ZeusRapidFire, DrFrostBlizzardGrowth, MarauderShotgunBlast, TemplerMultiHit, NinjaMythic, AirManWindExtra, ThorElectricPull, VesselDefensiveShield, CarrierSpecialInterceptor, DragoonLaserBind }` enum 추가 |
-| `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/ECurrencyType.cs` | Relic 조각(689~721), 티켓(729~730), 업그레이드/랭크업/상자(1187~1193) 추가. **1093~1099는 WD 기존 항목이므로 절대 수정 금지** |
+| `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/GameEnums.cs` | `ERelicGrade { Rare=-1, Epic=0, Legendary=1, Mythic=2 }` enum 추가 (⚠️ 소스는 feature/relic_skill이 아닌 **dev 브랜치** 기준 — Rare는 dev에만 존재)<br>`ERelicSkillType { None, TurretDelayedExplosion, ZeusRapidFire, DrFrostBlizzardGrowth, MarauderShotgunBlast, TemplerMultiHit, NinjaMythic, AirManWindExtra, ThorElectricPull, VesselDefensiveShield, CarrierSpecialInterceptor, DragoonLaserBind }` enum 추가 |
+| `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/ECurrencyType.cs` | Relic 조각(1187~1219), 티켓(1220~1221), 업그레이드/랭크업/상자(1222~1228), **Rare 조각(1229~1247)** 추가 (1093~1099 WD 충돌로 1187부터 재배정, 재배정 후 순차 증가) |
 | `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/ContentTypes.cs` | `Feature_Relic` 추가 (해금 레벨 미정 — BLOCKER-1) |
 | `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/EGachaType.cs` | `Relic` 추가 (WD GachaManager Relic 가챠 연동용) |
 | `/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/Assets/_Project/1_Scripts/Core/Enums/GameEventTypes.cs` | `RelicAcquired, RelicEnhanced, RelicRankedUp, RelicEquipped, RelicUnequipped, RelicGachaDrawn` 추가 |
