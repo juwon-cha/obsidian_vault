@@ -7,7 +7,7 @@
   "phase_limit": "5c",
   "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-04_Relic",
   "reference_plan": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-03_Relic/Relic_SYNC_PLAN.md",
-  "next_phase": "5c",
+  "next_phase": "done",
   "completed_phases": {
     "0": "remote fetch + worktree 생성 완료",
     "1": "BD Relic 파일 50개 탐색 완료, WD 수정 대상 28개 확인",
@@ -15,7 +15,8 @@
     "3": "SYNC_PLAN.md 생성 완료 (2026-05-04_Relic, migration 경로 포함)",
     "4": "스크립트 이식 완료 — 6단계 수행: enum/타입 정의 8개 수정 28개 신규, RelicManager+DamageCalc RelicEffect 신규, 기존 매니저 7개 수정, UI 18개 신규, 기존 UI+UnitController 기반 수정, 유닛별 RelicSkill partial 10개 신규",
     "5a": "PREFAB_PACKAGE_LIST.md 생성 완료 — 프리팹 22개, 에셋(스프라이트/텍스처/애니메이션) 112개, 총 134개 목록화",
-    "5b": "에셋 복사+GUID교체+Addressables 등록 완료 — 프리팹 22개, 스프라이트 101개, 텍스처 27개, 애니메이션 4개. Resources-UI/Prefabs/Sprites/Anim 4개 그룹 등록 완료"
+    "5b": "에셋 복사+GUID교체+Addressables 등록 완료 — 프리팹 22개, 스프라이트 101개, 텍스처 27개, 애니메이션 4개. Resources-UI/Prefabs/Sprites/Anim 4개 그룹 등록 완료",
+    "5c": "GachaPanel RelicGachaBox 추가+바인딩, UnitUpgradeUI Button-Relic 추가, GeneralShopPanel 수정 불필요 확인"
   },
   "worktree_created": true,
   "worktree_path": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker"
