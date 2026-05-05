@@ -42,6 +42,8 @@ cat .claude/migration/.sync_state.json 2>/dev/null || echo "NO_STATE"
 --from  <소스>        소스 프로젝트 (필수). 세 가지 형태 지원:
                         로컬 경로:     /Volumes/repo/BunkerDefense
                         remote 브랜치: origin/temp-bunker
+                                       브랜치 지정: origin/temp-bunker/dev
+                                       💡 항상 최신 브랜치(dev 등)를 명시하는 것을 권장
                         remote URL:   git@github.com:org/BunkerDefense.git
 --branch <브랜치>     --from이 remote URL일 때 브랜치 지정 (생략 시 기본 브랜치)
 --to    <경로>        대상 프로젝트 루트 (생략 시 현재 디렉토리)
@@ -98,8 +100,12 @@ ls Assets 2>/dev/null && echo "UNITY_PROJECT" || echo "NOT_UNITY"
 📁 FROM (소스 프로젝트)를 입력해줘. 아래 세 가지 형태 모두 가능해:
 
    로컬 경로:     /Volumes/repo/BunkerDefense
-   remote 브랜치: origin/temp-bunker
+   remote 브랜치: origin/temp-bunker          ← HEAD 브랜치
+                  origin/temp-bunker/dev      ← 브랜치 직접 지정 (권장)
    remote URL:   git@github.com:org/BunkerDefense.git
+
+💡 브랜치를 명시하지 않으면 remote의 HEAD 브랜치가 사용돼.
+   최신 변경사항이 dev처럼 특정 브랜치에만 있는 경우 브랜치를 꼭 지정해줘.
 ```
 → 입력받으면 즉시 타입 감지 및 검증 (phase0_fetch_setup.md 참조)
 
