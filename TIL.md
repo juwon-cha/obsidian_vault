@@ -1,2 +1,2 @@
 lossyScale
-Layout Component
+Layout Element Component
