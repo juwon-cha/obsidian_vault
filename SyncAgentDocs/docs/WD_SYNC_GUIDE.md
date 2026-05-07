@@ -667,6 +667,6 @@ git worktree prune
 git branch -D worktree-agent-{id}
 ```
 
-> **sync 과정 기록**은 `.claude/sync/` 리포트 파일에 보존되므로
+> **sync 과정 기록**은 `~/Documents/obsidian_vault/Sync/` (또는 obsidian 없으면 `~/Downloads/Sync/`) 리포트 파일에 보존되므로
 > 워크트리 브랜치를 남길 필요가 없다.
 > 에이전트 자동화 시 sync 완료 단계에 위 정리 스텝을 포함할 것.

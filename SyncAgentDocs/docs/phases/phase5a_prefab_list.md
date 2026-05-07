@@ -1,10 +1,11 @@
 # Phase 5-A — 프리팹 sync 목록 생성
 
 ## 입력 파라미터
-- FROM_PATH: {from}
+- FROM_LOCAL: {from_local}   ← Phase 0에서 확정된 실제 로컬 경로
 - TO_PATH: {to}
 - SYSTEM: {system}
 - KEYS: {keys}
+- OUTPUT_DIR: {output_dir}   ← 산출물 저장 경로
 
 ## 작업
 

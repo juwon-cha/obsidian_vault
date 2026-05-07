@@ -1,9 +1,10 @@
 # Phase 5-C — 기존 프리팹 패치 (미리보기 + 확인 후 적용)
 
 ## 입력 파라미터
-- FROM_PATH: {from}
+- FROM_LOCAL: {from_local}   ← Phase 0에서 확정된 실제 로컬 경로
 - TO_PATH: {to}
 - SYSTEM: {system}
+- OUTPUT_DIR: {output_dir}   ← 산출물 저장 경로
 - 패치 대상: Phase 5-A 목록의 🔵 수동 판단 항목 + 스크립트 분석으로 감지된 기존 TO 프리팹
 
 > **안전 원칙**: 절대 자동 적용하지 않는다.

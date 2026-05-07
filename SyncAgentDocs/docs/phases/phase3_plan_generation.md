@@ -25,7 +25,7 @@ grep -n "ManagerDefinition" "{to}/Assets/_Project/1_Scripts/Core/Managers/Manage
 
 출력 경로는 상태 파일의 `output_dir` 값을 사용한다:
 ```bash
-OUTPUT_DIR=$(python3 -c "import json; print(json.load(open('{to}/.claude/migration/.sync_state.json'))['output_dir'])")
+OUTPUT_DIR=$(python3 -c "import json, os; _base=os.path.expanduser('~/Documents/obsidian_vault'); sync_base=os.path.join(_base,'Sync') if os.path.isdir(_base) else os.path.expanduser('~/Downloads/Sync'); state_path=os.path.join(sync_base,os.path.basename('{to}'),'.sync_state.json'); print(json.load(open(state_path))['output_dir'])")
 mkdir -p "$OUTPUT_DIR"
 ```
 

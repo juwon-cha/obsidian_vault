@@ -3,12 +3,12 @@
 ## 입력 파라미터
 - TO_PATH: {to}
 - SYSTEM: {system}
-- SYNC_PLAN: `{to}/.claude/sync/{system}_SYNC_PLAN.md`
+- SYNC_PLAN: `{output_dir}/{system}_SYNC_PLAN.md`
 
 ## 참조 문서
 아래 문서를 Read로 읽는다:
 - `{to}/.claude/docs/WD_SYNC_GUIDE.md`
-- `{to}/.claude/sync/{system}_SYNC_PLAN.md`
+- `{output_dir}/{system}_SYNC_PLAN.md`
 
 ## 작업
 
@@ -19,7 +19,7 @@ SYNC_PLAN.md의 **섹션 5 체크리스트 순서대로** sync을 진행한다.
 WD_SYNC_GUIDE.md의 규칙 1~15를 적용한다.
 
 ### 각 항목 작업 방식
-1. 해당 FROM 파일을 `git show FETCH_HEAD:{경로}`로 읽는다
+1. 해당 FROM 파일을 `cat "{from_local}/{경로}"`로 읽는다
 2. TO 파일이 이미 존재하면 Read 도구로 읽는다
 3. 변환 규칙 적용 후 Write/Edit 도구로 저장한다
 4. SYNC_PLAN.md의 체크리스트 항목을 [x]로 표시한다

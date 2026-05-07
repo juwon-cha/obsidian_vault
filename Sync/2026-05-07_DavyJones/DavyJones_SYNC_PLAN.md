@@ -357,19 +357,85 @@ done
 
 ---
 
+## Step 7. Currency 데이터 추가 (후속 작업)
+
+> **주의**: 마린 영웅 스킨 sync 시 항상 currency + weapon 스킨도 함께 처리해야 함.
+> FROM ID(816/817) → WD ID(1187/1188) 변환 필요.
+
+### CurrencyData SO (신규 GUID 생성)
+- `Assets/Resources/ScriptableObjects/CurrencyData/1187.asset` — marine_transcend_i (FROM: 816, currencyType: 1187)
+- `Assets/Resources/ScriptableObjects/CurrencyData/1188.asset` — weapon_transcend_i (FROM: 817, currencyType: 1188)
+
+### 아이콘
+- `Assets/Resources_moved/Sprites/Icon/icon_marine_transcend_i.png` — FROM `Resources/Sprites/Icon/`에서 복사
+
+### weapon_transcend_i 스프라이트
+- `Assets/Resources_moved/Sprites/Skin/Weapon/weapon_transcend_i/` (신규 폴더, 3개 파일)
+  - `icon_inGame_marine_transcend_i.png`
+  - `icon_outGame_marine_transcend_i.png`
+  - `UI_anim_weapons_marine_transcend_i.png`
+
+### WeaponskinData SO (5개, currencyType1 수정)
+- `Assets/Resources/ScriptableObjects/WeaponskinData/2096~2100.asset`
+- FROM 원본의 `currencyType1: 817` → `currencyType1: 1188` 로 수정 후 저장
+
+### EffectData SO
+- `Assets/Resources/ScriptableObjects/EffectData/139.asset` — effectType 1029 (DavyJones 피격 이펙트)
+
+### ProfileIconData SO
+- `Assets/Resources/ScriptableObjects/ProfileIconData/57.asset` — icon_skin_marine_davyjones
+
+### JSON 수정
+- `WeaponskinData.json`: id 2096~2100 항목 5개 추가 (currencyType1=1188)
+- `MarineSkinData.json`: id 1096~1100의 `costType1: 816` → `costType1: 1187` 로 수정
+
+---
+
 ## 체크리스트
 
-- [ ] EEffectType.cs 수정 (`MarineHitEffect_Skin_DavyJones = 1029`)
-- [ ] EMuzzleEffectType.cs 수정 (`DavyJones = 80`, `DavyJonesStimpack = 81`)
-- [ ] UI 텍스처 12개 복사 (`Assets/Marine/UI_Marine_Texture/`)
-- [ ] 인게임 스킨 텍스처 8개 복사 (`Assets/_Project/6_Textures/Units/Marine/`)
-- [ ] 프로필 아이콘 1개 복사 (`Assets/Resources_moved/Sprites/UI/Profile/Icons/`)
-- [ ] marine_transcend_i 폴더 신규 생성 및 파일 2개 복사
-- [ ] 인게임 .anim 3개 복사 (`Assets/_Project/4_Animations/Marine/`)
-- [ ] Animator Controller 1개 복사 (`Assets/Resources_moved/Anim/IngameHeroSkin/`)
-- [ ] UI 스킨 프리팹 2개 복사 (`Assets/Marine/Prefab/UI/UI_Marine_Skin/`)
-- [ ] 히트 이펙트 프리팹 1개 복사 (`Assets/Resources_moved/EffectPrefabs/Marine/`)
-- [ ] 프로젝타일 프리팹 2개 복사 (`Assets/Resources_moved/Prefabs/HeroSkin/`)
-- [ ] 머즐 플래시 프리팹 2개 복사 (`Assets/_Project/3_Prefabs/Units/Marine/`)
-- [ ] MarineSkinData SO 5개 복사 (`Assets/Resources/ScriptableObjects/MarineSkinData/`)
-- [ ] MarineSkinData.json 수정 (id 1096~1100 항목 추가)
+- [x] EEffectType.cs 수정 (`MarineHitEffect_Skin_DavyJones = 1029`)
+- [x] EMuzzleEffectType.cs 수정 (`DavyJones = 80`, `DavyJonesStimpack = 81`)
+- [x] UI 텍스처 12개 복사 (`Assets/Marine/UI_Marine_Texture/`)
+- [x] 인게임 스킨 텍스처 8개 복사 (`Assets/_Project/6_Textures/Units/Marine/`)
+- [x] 프로필 아이콘 1개 복사 (`Assets/Resources_moved/Sprites/UI/Profile/Icons/`)
+- [x] marine_transcend_i 폴더 신규 생성 및 파일 2개 복사
+- [x] 인게임 .anim 3개 복사 (`Assets/_Project/4_Animations/Marine/`)
+- [x] Animator Controller 1개 복사 (`Assets/Resources_moved/Anim/IngameHeroSkin/`)
+- [x] UI 스킨 프리팹 2개 복사 (`Assets/Marine/Prefab/UI/UI_Marine_Skin/`)
+- [x] 히트 이펙트 프리팹 1개 복사 (`Assets/Resources_moved/EffectPrefabs/Marine/`)
+- [x] 프로젝타일 프리팹 2개 복사 (`Assets/Resources_moved/Prefabs/HeroSkin/`)
+- [x] 머즐 플래시 프리팹 2개 복사 (`Assets/_Project/3_Prefabs/Units/Marine/`)
+- [x] MarineSkinData SO 5개 복사 (`Assets/Resources/ScriptableObjects/MarineSkinData/`)
+- [x] MarineSkinData.json 수정 (id 1096~1100 항목 추가)
+- [x] Wind_7.mat 누락 에셋 복사 (`Assets/Marine/Shader/`)
+- [x] UI_Marine.prefab 패치 (DavyJones 스킨 노드 추가)
+- [x] icon_marine_transcend_i.png 복사 (`Assets/Resources_moved/Sprites/Icon/`)
+- [x] weapon_transcend_i 스프라이트 3개 복사 (신규 폴더)
+- [x] CurrencyData 1187.asset 생성 (marine_transcend_i)
+- [x] CurrencyData 1188.asset 생성 (weapon_transcend_i)
+- [x] WeaponskinData SO 2096~2100 복사 (currencyType1: 1188)
+- [x] EffectData 139.asset 복사
+- [x] ProfileIconData 57.asset 복사
+- [x] WeaponskinData.json 수정 (id 2096~2100 추가)
+- [x] MarineSkinData.json costType1 수정 (816→1187)
+
+## 마린 스킨 Sync 체크리스트 (이후 재사용)
+
+다음에 마린 영웅 스킨을 sync할 때는 아래 항목을 모두 확인할 것:
+
+| 항목 | 비고 |
+|------|------|
+| 스킨 텍스처 (UI + 인게임) | UI 12개, 인게임 8개 |
+| 프로필 아이콘 | `icon_skin_marine_{name}.png` |
+| `marine_transcend_{x}` 폴더 | anim + frame png |
+| 애니메이션 (.anim × 3 + .controller × 1) | Resources → Resources_moved 경로 변환 |
+| 프리팹 7개 | VFX_UI Back/Front, HitEffect, Projectile×2, MuzzleFlash×2 |
+| MarineSkinData SO (id 10xx × 5) + JSON | costType1 = WD currency ID |
+| **icon_marine_transcend_{x}.png** | Resources_moved/Sprites/Icon/ |
+| **weapon_transcend_{x} 스프라이트** | Resources_moved/Sprites/Skin/Weapon/ |
+| **CurrencyData SO 2개** | FROM ID→WD ID 변환, 신규 GUID |
+| **WeaponskinData SO 5개** + JSON | currencyType1 = WD weapon currency ID |
+| **EffectData SO** | effectType 번호 확인 |
+| **ProfileIconData SO** | 프로필 아이콘 데이터 |
+| .cs enum 수정 (EEffectType, EMuzzleEffectType) | |
+| UI_Marine.prefab 패치 | 스킨 노드 + PrefabInstance 추가 |

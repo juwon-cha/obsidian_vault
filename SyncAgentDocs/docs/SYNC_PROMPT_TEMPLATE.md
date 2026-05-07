@@ -151,7 +151,8 @@ Phase 2 완료 후 보고 형식:
 ## Phase 3 — 분석 문서 생성
 
 Phase 2 결과와 첨부한 SYSTEM_ANALYSIS_TEMPLATE.md를 참고해서
-{TO_PATH}/.claude/sync/{시스템명}_SYNC_PLAN.md 를 생성해줘.
+~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_SYNC_PLAN.md 를 생성해줘.
+(obsidian 없으면 ~/Downloads/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_SYNC_PLAN.md)
 
 채워야 하는 섹션:
 - 섹션 0: grep 전수조사 결과 표 (FROM 파일 | 역할 | FROM 전용 패턴 | **sync 유형** | TO 처리 방법) + **섹션 0.1 PARTIAL 파일 의존성 상세 표**
@@ -222,7 +223,7 @@ Phase 4 완료 후 보고 형식:
 ## Phase 5-A — 프리팹 sync 목록 생성
 
 sync된 스크립트를 분석해서 프리팹 sync에 필요한 정보를
-{TO_PATH}/.claude/sync/{시스템명}_PREFAB_PACKAGE_LIST.md 로 생성해줘.
+~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_PREFAB_PACKAGE_LIST.md 로 생성해줘.
 
 ### 분석 절차
 
@@ -384,7 +385,7 @@ Phase 3 완료 후 멘트를 아래로 교체:
 
 ---
 
-{TO_PATH}/.claude/sync/{시스템명}_SYNC_PLAN.md 를 읽고 sync을 진행해줘.
+~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_SYNC_PLAN.md 를 읽고 sync을 진행해줘.
 첨부한 WD_SYNC_GUIDE.md (규칙 1~15)를 적용해.
 
 체크리스트에 기록된 순서대로 진행한다. 각 파일 작업 전 TO 파일을 Read로 읽고 시작.
@@ -408,13 +409,13 @@ Phase 2 프롬프트 끝에 아래 문장 추가:
 
 ---
 
-{TO_PATH}/.claude/sync/{시스템명}_SYNC_PLAN.md 를 읽고 Phase 5-A(프리팹 sync 목록 생성)만 진행해줘.
+~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_SYNC_PLAN.md 를 읽고 Phase 5-A(프리팹 sync 목록 생성)만 진행해줘.
 
 FROM_PATH = {FROM_PATH}
 TO_PATH   = {TO_PATH}
 KEYWORDS  = {키워드1, 키워드2}
 
-출력 파일: `{TO_PATH}/.claude/sync/{시스템명}_PREFAB_PACKAGE_LIST.md`
+출력 파일: `~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_PREFAB_PACKAGE_LIST.md`
 분석 절차는 SYNC_PROMPT_TEMPLATE.md의 Phase 5-A 절차를 따른다.
 
 ---
@@ -425,7 +426,7 @@ KEYWORDS  = {키워드1, 키워드2}
 
 ---
 
-{TO_PATH}/.claude/sync/{시스템명}_PREFAB_PACKAGE_LIST.md 를 읽고 Phase 5-B(프리팹 자동 sync)를 실행해줘.
+~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{시스템명}/{시스템명}_PREFAB_PACKAGE_LIST.md 를 읽고 Phase 5-B(프리팹 자동 sync)를 실행해줘.
 
 FROM_PATH = {FROM_PATH}
 TO_PATH   = {TO_PATH}

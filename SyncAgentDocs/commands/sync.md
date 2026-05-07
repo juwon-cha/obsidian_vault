@@ -12,7 +12,10 @@ description: Unity 프로젝트 간 시스템 sync. 페이즈별 실행 + 컨텍
 
 ```bash
 pwd
-cat .claude/migration/.sync_state.json 2>/dev/null || echo "NO_STATE"
+PROJECT_NAME=$(basename $(pwd))
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
+STATE_DIR="$SYNC_BASE/$PROJECT_NAME"
+cat "$STATE_DIR/.sync_state.json" 2>/dev/null || echo "NO_STATE"
 ```
 
 **상태 파일이 있고 `next_phase`가 `done`이 아닌 경우:**
@@ -53,7 +56,6 @@ cat .claude/migration/.sync_state.json 2>/dev/null || echo "NO_STATE"
 --phase <4|5a|5b|5c> 실행 범위 (생략 시 대화로 선택)
 --plan  <경로>        기존 분석 문서 경로. 지정 시 Phase 1~3 건너뛰고 Phase 4로 바로 실행.
                         obsidian 경로: ~/Documents/obsidian_vault/Sync/2026-05-03_Relic/{system}_SYNC_PLAN.md
-                        프로젝트 경로: .claude/migration/{system}_SYNC_PLAN.md
                         절대 경로:    /any/path/to/{system}_SYNC_PLAN.md
 --output <경로>       산출물 저장 디렉토리 (생략 시 자동 결정)
                         기본값: ~/Documents/obsidian_vault/Sync/{YYYY-MM-DD}_{system}/
@@ -120,11 +122,9 @@ ls Assets 2>/dev/null && echo "UNITY_PROJECT" || echo "NOT_UNITY"
 시스템명이 확정되면 즉시 아래 경로에서 기존 분석 문서를 탐색한다:
 
 ```bash
-# 1. 프로젝트 내부 표준 경로
-ls "{to}/.claude/migration/{system}_SYNC_PLAN.md" 2>/dev/null && echo "FOUND_INTERNAL"
-
-# 2. 프로젝트 내부 대소문자 변형 탐색
-find "{to}/.claude/migration/" -iname "*{system}*plan*" -o -iname "*{system}*계획*" 2>/dev/null | head -3
+# 가장 최근 날짜의 {system} 플랜 파일 탐색
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
+find "$SYNC_BASE/" -maxdepth 2 -iname "*{system}*SYNC_PLAN*" 2>/dev/null | sort -r | head -3
 ```
 
 **문서가 발견된 경우:**
@@ -210,11 +210,12 @@ Type "start" to begin, or "re-analyze" to run full analysis from Phase 0.
 확인 후 상태 파일에 기록하고 `next_phase`를 `"0_plan"`으로 설정:
 ```bash
 DATE=$(date +%Y-%m-%d)
-OUTPUT_DIR="${HOME}/Documents/obsidian_vault/Sync/${DATE}_{system}"
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
+OUTPUT_DIR="${SYNC_BASE}/${DATE}_{system}"
 [ -n "{output}" ] && OUTPUT_DIR="{output}"
-mkdir -p "$OUTPUT_DIR"
+STATE_DIR="$SYNC_BASE/$(basename {to})"
+mkdir -p "$OUTPUT_DIR" "$STATE_DIR"
 
-mkdir -p "{to}/.claude/migration"
 python3 -c "
 import json
 state = {
@@ -231,7 +232,7 @@ state = {
   'worktree_created': False,
   'worktree_path': ''
 }
-with open('{to}/.claude/migration/.sync_state.json', 'w') as f:
+with open('$STATE_DIR/.sync_state.json', 'w') as f:
     json.dump(state, f, ensure_ascii=False, indent=2)
 "
 ```
@@ -252,7 +253,8 @@ with open('{to}/.claude/migration/.sync_state.json', 'w') as f:
 
 ### 1. 상태 파일 확인
 ```bash
-cat "{TO_PATH}/.claude/sync/.sync_state.json" 2>/dev/null || echo "NO_STATE"
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
+cat "$SYNC_BASE/$(basename {TO_PATH})/.sync_state.json" 2>/dev/null || echo "NO_STATE"
 ```
 
 상태 파일이 없으면:
@@ -288,8 +290,9 @@ cd "{TO_PATH}" && git diff --name-only HEAD
 
 **r 선택 (변경사항 되돌리기):**
 ```bash
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
 cd "{TO_PATH}" && git checkout -- .
-rm "{TO_PATH}/.claude/sync/.sync_state.json"
+rm "$SYNC_BASE/$(basename {TO_PATH})/.sync_state.json"
 ```
 완료 후:
 ```
@@ -298,7 +301,8 @@ rm "{TO_PATH}/.claude/sync/.sync_state.json"
 
 **k 선택 (상태 파일만 삭제):**
 ```bash
-rm "{TO_PATH}/.claude/sync/.sync_state.json"
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
+rm "$SYNC_BASE/$(basename {TO_PATH})/.sync_state.json"
 ```
 완료 후:
 ```
@@ -350,23 +354,28 @@ ls "{from}/Assets" > /dev/null 2>&1 && echo "UNITY" || echo "NOT_UNITY"
 `--output` 플래그가 있으면 해당 경로를, 없으면 자동 생성한다:
 
 ```bash
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
 if [ -n "{output}" ]; then
   OUTPUT_DIR="{output}"
 else
   DATE=$(date +%Y-%m-%d)
-  OUTPUT_DIR="$HOME/Documents/obsidian_vault/Sync/${DATE}_{system}"
+  OUTPUT_DIR="$SYNC_BASE/${DATE}_{system}"
 fi
 mkdir -p "$OUTPUT_DIR"
 echo "OUTPUT_DIR=$OUTPUT_DIR"
 ```
 
-> 산출물(SYNC_PLAN.md, PREFAB_PACKAGE_LIST.md 등)은 모두 `OUTPUT_DIR`에 저장된다.
-> `.sync_state.json`은 재실행 복원용이므로 프로젝트 내부에만 저장한다.
+> 산출물(SYNC_PLAN.md, PREFAB_PACKAGE_LIST.md 등)과 상태 파일은 아래 우선순위로 저장된다:
+> 1순위: `~/Documents/obsidian_vault/Sync/` (obsidian 설치된 경우)
+> 2순위: `~/Downloads/Sync/` (폴백)
+> git 프로젝트 내부에는 아무것도 저장하지 않는다.
 
 ### 2. 상태 파일 저장
 ```bash
-mkdir -p "{TO_PATH}/.claude/migration"
-cat > "{TO_PATH}/.claude/migration/.sync_state.json" << 'STATEOF'
+SYNC_BASE=$([ -d "$HOME/Documents/obsidian_vault" ] && echo "$HOME/Documents/obsidian_vault/Sync" || echo "$HOME/Downloads/Sync")
+STATE_DIR="$SYNC_BASE/$(basename {TO_PATH})"
+mkdir -p "$STATE_DIR"
+cat > "$STATE_DIR/.sync_state.json" << 'STATEOF'
 {
   "from": "{FROM_PATH}",
   "from_local": "",
@@ -414,27 +423,61 @@ AskUserQuestion 도구로 2단계 질문을 보여준다:
   - label: "D. 작업 유형별 허용"
     description: "읽기·탐색(git/grep/find/Read)은 자동. 쓰기·복사(Write/cp/mkdir)는 그때그때."
 
-선택 결과에 따라 아래 권한을 세션 내 허용 목록으로 기억하고 이후 작업에 적용한다:
+선택 결과에 따라 TO 프로젝트의 `.claude/settings.json`에 권한을 **실제로 추가**한다.
 
-| 선택 | 자동 허용 항목 |
-|------|--------------|
-| A | git(fetch/grep/show/ls-tree), grep, find, python3, Read({from}/**), Read({to}/**), cp, mkdir, Write |
-| B | git(fetch/grep/show/ls-tree), grep, find, python3, Read({from}/**), Read({to}/**) — Phase 4 직전 별도 확인 안내 |
-| C | Phase별로 진입 시점에 해당 Phase 권한 목록 안내 후 진행 |
-| D | git(fetch/grep/show/ls-tree), grep, find, Read({from}/**), Read({to}/**) |
+> **⚠️ 보안 제약**: `python3`, `bash`, `sh` 등 인터프리터는 임의 코드 실행 위험으로 허용 불가.
+> sync 중 python3 호출(상태 파일 JSON 업데이트 등)은 여전히 개별 승인이 필요할 수 있음.
+
+| 선택 | settings.json에 추가하는 항목 |
+|------|---------------------------|
+| A | `Bash(cp *)`, `Bash(mkdir *)`, `Bash(git ls-tree *)`, `Bash(git fetch *)`, `Bash(git worktree *)`, `Write` |
+| B | `Bash(git ls-tree *)`, `Bash(git fetch *)`, `Bash(git worktree *)` — Phase 4 직전 추가 안내 |
+| C | Phase별로 진입 시점에 해당 Phase 권한만 추가 |
+| D | `Bash(git ls-tree *)`, `Bash(git fetch *)`, `Bash(git worktree *)` |
+
+**권한 추가 방법**: `{TO_PATH}/.claude/settings.json`의 `permissions.allow` 배열에 해당 항목을 추가한다.
+파일이 없으면 새로 생성, 있으면 기존 항목을 유지하면서 누락된 항목만 추가:
+
+```bash
+python3 -c "
+import json, os
+path = '{TO_PATH}/.claude/settings.json'
+try:
+    with open(path) as f:
+        cfg = json.load(f)
+except:
+    cfg = {}
+cfg.setdefault('permissions', {}).setdefault('allow', [])
+to_add = {선택에 따른 항목 목록}
+for item in to_add:
+    if item not in cfg['permissions']['allow']:
+        cfg['permissions']['allow'].append(item)
+with open(path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+print('권한 추가 완료:', to_add)
+"
+```
+
+권한 추가 완료 후:
+```
+✅ settings.json 업데이트 완료
+   추가된 항목: {추가된 항목 목록}
+   ⚠️  python3 호출은 보안 정책상 자동 허용 불가 — 상태 파일 업데이트 시 개별 승인 필요
+```
 
 > **B 옵션 Phase 4 진입 시 추가 안내:**
 > ```
 > ⚠️ 이제 Phase 4(실제 파일 수정)를 시작해.
->    아래 권한이 추가로 필요해:
->    - Write (TO 스크립트 파일 수정)
->    - python3 (상태 파일 업데이트)
+>    아래 권한을 settings.json에 추가할게:
+>    - Bash(cp *)
+>    - Bash(mkdir *)
+>    - Write
 >    계속 진행할까?
 > ```
 
 > **C 옵션 각 Phase 진입 시 안내 형식:**
 > ```
-> 🔐 Phase {N} 시작 — 아래 권한이 필요해:
+> 🔐 Phase {N} 시작 — 아래 권한을 settings.json에 추가할게:
 >    - {해당 Phase 권한 목록}
 >    진행할까?
 > ```
@@ -470,20 +513,24 @@ AskUserQuestion 도구로 2단계 질문을 보여준다:
 
 ### 각 페이즈 실행 절차
 
-1. 해당 페이즈 문서를 Read 도구로 읽는다:
+1. 해당 페이즈 문서를 Read 도구로 읽는다. 아래 우선순위로 경로를 탐색한다:
    ```
-   {TO_PATH}/.claude/docs/phases/phase{N}_{name}.md
+   1순위 (프로젝트 커스텀): {TO_PATH}/.claude/docs/phases/phase{N}_{name}.md
+   2순위 (글로벌):          ~/Documents/obsidian_vault/SyncAgentDocs/docs/phases/phase{N}_{name}.md
+   3순위 (폴백):            ~/Downloads/SyncAgentDocs/docs/phases/phase{N}_{name}.md
    ```
+   파일이 존재하는 첫 번째 경로를 사용한다.
 
 2. **Agent 도구로 실행한다** (서브에이전트가 독립 컨텍스트에서 파일 읽기/쓰기 수행):
    ```
    subagent_type: general-purpose
    prompt: [페이즈 문서 전체] + 아래 파라미터:
-     FROM       = {from}             ← 원본 입력값 (remote URL/브랜치/로컬 경로)
-     FROM_LOCAL = {from_local}       ← Phase 0에서 확정된 실제 로컬 경로
-     TO_PATH    = {to}
-     SYSTEM     = {system}
-     KEYS       = {keys}
+     FROM        = {from}             ← 원본 입력값 (remote URL/브랜치/로컬 경로)
+     FROM_LOCAL  = {from_local}       ← Phase 0에서 확정된 실제 로컬 경로
+     TO_PATH     = {to}
+     SYSTEM      = {system}
+     KEYS        = {keys}
+     OUTPUT_DIR  = {output_dir}       ← 산출물 저장 경로 (상태 파일의 output_dir 값)
    ```
    > Phase 1 이후 파일 탐색은 FROM_LOCAL을 사용한다.
 
@@ -493,12 +540,15 @@ AskUserQuestion 도구로 2단계 질문을 보여준다:
    ```bash
    # Python으로 JSON 업데이트 (jq 없이 안전하게)
    python3 -c "
-   import json, sys
-   with open('{TO_PATH}/.claude/sync/.sync_state.json', 'r') as f:
+   import json, os
+   _base = os.path.expanduser('~/Documents/obsidian_vault')
+   sync_base = os.path.join(_base, 'Sync') if os.path.isdir(_base) else os.path.expanduser('~/Downloads/Sync')
+   state_path = os.path.join(sync_base, os.path.basename('{TO_PATH}'), '.sync_state.json')
+   with open(state_path, 'r') as f:
        state = json.load(f)
    state['completed_phases']['{N}'] = '{요약 한 줄}'
    state['next_phase'] = '{다음 페이즈}'
-   with open('{TO_PATH}/.claude/sync/.sync_state.json', 'w') as f:
+   with open(state_path, 'w') as f:
        json.dump(state, f, ensure_ascii=False, indent=2)
    "
    ```
@@ -534,7 +584,7 @@ AskUserQuestion 도구로 2단계 질문을 보여준다:
 **Phase 4 주의**: 사용자가 명시적으로 "sync 시작" 또는 "진행해" 라고 말하기 전까지 절대 시작하지 않는다.
 Phase 3 완료 시 아래 안내 출력:
 ```
-📄 분석 문서가 생성됐어: {TO_PATH}/.claude/sync/{system}_SYNC_PLAN.md
+📄 분석 문서가 생성됐어: {OUTPUT_DIR}/{system}_SYNC_PLAN.md
 검토 후 "sync 시작" 이라고 말해줘. 그 전까지 Phase 4는 실행되지 않아.
 ```
 
@@ -572,6 +622,7 @@ Phase 3 완료 시 아래 안내 출력:
         --keys BattlePassManager,BattlePassTypes,BattlePass \
         --phase 5a
   # → 산출물: ~/Documents/obsidian_vault/Sync/2026-05-03_BattlePass/
+  #           (obsidian 없으면 ~/Downloads/Sync/2026-05-03_BattlePass/)
 
   # 기존 분석 문서 활용 (Phase 1~3 스킵, 토큰 절약)
   /sync --from origin/temp-bunker \
@@ -579,11 +630,11 @@ Phase 3 완료 시 아래 안내 출력:
         --plan ~/Documents/obsidian_vault/Sync/2026-05-03_BattlePass/BattlePass_SYNC_PLAN.md \
         --phase 4
 
-  # 출력 경로 직접 지정
+  # 출력 경로 직접 지정 (폴백 없이 항상 이 경로 사용)
   /sync --from origin/temp-bunker \
         --system BattlePass \
         --keys BattlePassManager,BattlePassTypes \
-        --output ~/Documents/obsidian_vault/Sync/2026-05-03_BattlePass \
+        --output ~/Downloads/Sync/2026-05-03_BattlePass \
         --phase 5a
 
 💡 컨텍스트 절약 팁:

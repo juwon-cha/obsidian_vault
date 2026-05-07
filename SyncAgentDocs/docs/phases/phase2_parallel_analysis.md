@@ -1,6 +1,7 @@
 # Phase 2 — 병렬 FROM 파일 분석
 
 ## 입력 파라미터
+- FROM_LOCAL: {from_local}   ← Phase 0에서 확정된 실제 로컬 경로
 - TO_PATH: {to}
 - SYSTEM: {system}
 - Phase 1 결과: FROM 발견 파일 목록, grep 패턴
@@ -12,7 +13,7 @@ Phase 1에서 발견된 FROM 파일들을 분석한다.
 
 각 파일 분석:
 ```bash
-cd "{to}" && git show FETCH_HEAD:{파일경로}
+cat "{from_local}/{파일경로}"
 ```
 
 각 파일에서 추출:
@@ -42,14 +43,14 @@ FROM과 TO의 핵심 인프라 클래스 초기화 패턴을 비교한다:
 
 ```bash
 # SaveDataManager JsonSerializer 설정 비교
-git show FETCH_HEAD:Assets/_Project/1_Scripts/Core/Managers/SaveDataManager.cs 2>/dev/null | \
-  grep -A 10 "JsonSerializer\|CreateJsonSerializer"
+grep -A 10 "JsonSerializer\|CreateJsonSerializer" \
+  "{from_local}/Assets/_Project/1_Scripts/Core/Managers/SaveDataManager.cs" 2>/dev/null
 grep -A 10 "JsonSerializer\|CreateJsonSerializer" \
   "{to}/Assets/_Project/1_Scripts/Core/Managers/SaveDataManager.cs"
 
 # Manager 등록/초기화 패턴 비교
-git show FETCH_HEAD:Assets/_Project/1_Scripts/Core/Managers/Managers.cs 2>/dev/null | \
-  grep -n "Add\|Register\|Initialize" | head -30
+grep -n "Add\|Register\|Initialize" \
+  "{from_local}/Assets/_Project/1_Scripts/Core/Managers/Managers.cs" 2>/dev/null | head -30
 grep -n "Add\|Register\|Initialize" \
   "{to}/Assets/_Project/1_Scripts/Core/Managers/Managers.cs" | head -30
 ```

@@ -65,13 +65,16 @@ ls "$WORKTREE_PATH/Assets" > /dev/null 2>&1 && echo "UNITY" || echo "NOT_UNITY"
 **5. 상태 파일에 worktree 경로 기록 (나중에 정리하기 위해):**
 ```bash
 python3 -c "
-import json
-with open('{to}/.claude/migration/.sync_state.json', 'r') as f:
+import json, os
+_base = os.path.expanduser('~/Documents/obsidian_vault')
+sync_base = os.path.join(_base, 'Sync') if os.path.isdir(_base) else os.path.expanduser('~/Downloads/Sync')
+state_path = os.path.join(sync_base, os.path.basename('{to}'), '.sync_state.json')
+with open(state_path, 'r') as f:
     state = json.load(f)
 state['from_local'] = '$WORKTREE_PATH'
 state['worktree_created'] = True
 state['worktree_path'] = '$WORKTREE_PATH'
-with open('{to}/.claude/migration/.sync_state.json', 'w') as f:
+with open(state_path, 'w') as f:
     json.dump(state, f, ensure_ascii=False, indent=2)
 "
 ```
@@ -98,13 +101,16 @@ ls "$WORKTREE_PATH/Assets" > /dev/null 2>&1 && echo "UNITY" || echo "NOT_UNITY"
 **3. 상태 파일에 기록:**
 ```bash
 python3 -c "
-import json
-with open('{to}/.claude/migration/.sync_state.json', 'r') as f:
+import json, os
+_base = os.path.expanduser('~/Documents/obsidian_vault')
+sync_base = os.path.join(_base, 'Sync') if os.path.isdir(_base) else os.path.expanduser('~/Downloads/Sync')
+state_path = os.path.join(sync_base, os.path.basename('{to}'), '.sync_state.json')
+with open(state_path, 'r') as f:
     state = json.load(f)
 state['from_local'] = '$WORKTREE_PATH'
 state['worktree_created'] = True
 state['worktree_path'] = '$WORKTREE_PATH'
-with open('{to}/.claude/migration/.sync_state.json', 'w') as f:
+with open(state_path, 'w') as f:
     json.dump(state, f, ensure_ascii=False, indent=2)
 "
 ```

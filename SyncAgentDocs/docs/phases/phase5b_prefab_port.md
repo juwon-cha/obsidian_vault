@@ -1,15 +1,16 @@
 # Phase 5-B — 프리팹 자동 sync 실행
 
 ## 입력 파라미터
-- FROM_PATH: {from}
+- FROM_LOCAL: {from_local}   ← Phase 0에서 확정된 실제 로컬 경로
 - TO_PATH: {to}
 - SYSTEM: {system}
 - KEYS: {keys}
-- PREFAB_LIST: `{OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md`
+- OUTPUT_DIR: {output_dir}   ← 산출물 저장 경로
+- PREFAB_LIST: `{output_dir}/{system}_PREFAB_PACKAGE_LIST.md`
 
 ## 참조 문서
 아래 파일을 Read로 읽는다:
-- `{OUTPUT_DIR}/{system}_PREFAB_PACKAGE_LIST.md`
+- `{output_dir}/{system}_PREFAB_PACKAGE_LIST.md`
 
 ## 작업
 
