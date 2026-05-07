@@ -1,16 +1,20 @@
 {
-  "from": "temp-bunker/dev",
-  "from_local": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender",
+  "from": "origin/temp-bunker/dev",
+  "from_local": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker",
   "to": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender",
-  "system": "RelicGachaMainUI",
-  "keys": "RelicGachaMainUI,RelicGachaService,RelicGachaConfigData,RelicPityData",
-  "phase_limit": "4",
-  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-04_Relic",
-  "next_phase": "done",
-  "plan_path": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-04_Relic/Relic_SYNC_EVALUATION.md",
+  "system": "DavyJones",
+  "keys": "DavyJones,davyjones,skin_davyjones,UI_skin_davyjones",
+  "phase_limit": "5c",
+  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-07_DavyJones",
+  "next_phase": "5a",
   "completed_phases": {
-    "4": "RelicGachaMainUI/Service/DataSheet SO 이식 + LobbyMainUI/AcquisitionRouteManager 연동 수정 완료"
+    "0": "temp-bunker/dev worktree 업데이트 완료 (3975fa1a14)",
+    "1": "파일 탐색 완료: 총 33개 (프리팹 7, 애니 5, 이미지 21, .cs 수정 2)",
+    "2": "분석 완료: .cs 2개 수정, 프리팹 7개/애니 5개/이미지 21개 복사, Resources→Resources_moved 경로 변환 필요, SO 5개+JSON 추가",
+    "3": "SYNC_PLAN.md 생성 완료: 8스텝, 체크리스트 14항목, 블로커 없음",
+    "4": "파일 복사 33개 + .cs 2개 수정 + JSON 수정 완료, 오류 없음"
   },
   "worktree_created": true,
-  "worktree_path": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker"
+  "worktree_path": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker",
+  "plan_path": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-07_DavyJones/DavyJones_SYNC_PLAN.md"
 }
