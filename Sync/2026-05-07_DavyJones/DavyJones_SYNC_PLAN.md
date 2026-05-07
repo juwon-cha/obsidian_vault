@@ -394,6 +394,12 @@ done
 
 ## 체크리스트
 
+- [x] MarineSkinData.json costType2 수정 (348→1053, marine_transcend_i 5개 rank)
+- [x] WeaponSkinData.json currencyType2 수정 (349→1054, weapon_transcend_i 5개 rank)
+- [x] DragoonPenetratingLaserConfigSO.cs 신규 추가 (`Assets/_Project/1_Scripts/Core/SOs/SkinSystem/`)
+- [x] PenetratingLaserController.cs 신규 추가 (WD Physics2D 패턴으로 포팅)
+- [x] DragoonController.SkinSkill.cs - SpecialAttackOnHit 초기화 + 관통 레이저 region 추가
+- [x] DragoonController.cs - `_penetratingLaserConfig` 필드 추가 + `OnMainLaserHitForPenetratingSkill` 훅 추가
 - [x] EEffectType.cs 수정 (`MarineHitEffect_Skin_DavyJones = 1029`)
 - [x] EMuzzleEffectType.cs 수정 (`DavyJones = 80`, `DavyJonesStimpack = 81`)
 - [x] UI 텍스처 12개 복사 (`Assets/Marine/UI_Marine_Texture/`)
@@ -444,3 +450,5 @@ done
 | **ProfileIconData SO** | 프로필 아이콘 데이터 |
 | .cs enum 수정 (EEffectType, EMuzzleEffectType) | |
 | UI_Marine.prefab 패치 | 스킨 노드 + PrefabInstance 추가 |
+| **스킨 스킬 로직 sync** | targetUnit 확인 → 해당 Controller.SkinSkill.cs에 카테고리별 초기화 + 메서드 추가; ConfigSO + 레이저/이펙트 컨트롤러 신규 추가; Controller.cs에 SerializeField + 훅 호출 추가 |
+| **JSON costType 오류 확인** | costType2/currencyType2 값이 올바른 WD ID인지 반드시 검증 (348/349 같은 잘못된 값 주의) |
