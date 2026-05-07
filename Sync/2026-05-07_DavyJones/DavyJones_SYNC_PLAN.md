@@ -388,6 +388,7 @@ done
 ### JSON 수정
 - `WeaponskinData.json`: id 2096~2100 항목 5개 추가 (currencyType1=1188)
 - `MarineSkinData.json`: id 1096~1100의 `costType1: 816` → `costType1: 1187` 로 수정
+- `CurrencyData.json`: currencyType 1187 (marine_transcend_i), 1188 (weapon_transcend_i) 항목 추가
 
 ---
 
@@ -418,6 +419,8 @@ done
 - [x] ProfileIconData 57.asset 복사
 - [x] WeaponskinData.json 수정 (id 2096~2100 추가)
 - [x] MarineSkinData.json costType1 수정 (816→1187)
+- [x] CurrencyData.json 수정 (currencyType 1187/1188 항목 추가)
+- [x] ECurrencyType.cs 수정 (`marine_transcend_i = 1187`, `weapon_transcend_i = 1188` 추가)
 
 ## 마린 스킨 Sync 체크리스트 (이후 재사용)
 
@@ -434,6 +437,8 @@ done
 | **icon_marine_transcend_{x}.png** | Resources_moved/Sprites/Icon/ |
 | **weapon_transcend_{x} 스프라이트** | Resources_moved/Sprites/Skin/Weapon/ |
 | **CurrencyData SO 2개** | FROM ID→WD ID 변환, 신규 GUID |
+| **CurrencyData.json** | currencyType 항목 추가 (marine + weapon) |
+| **ECurrencyType.cs** | enum 값 2개 추가 (marine_transcend_{x}, weapon_transcend_{x}) |
 | **WeaponskinData SO 5개** + JSON | currencyType1 = WD weapon currency ID |
 | **EffectData SO** | effectType 번호 확인 |
 | **ProfileIconData SO** | 프로필 아이콘 데이터 |

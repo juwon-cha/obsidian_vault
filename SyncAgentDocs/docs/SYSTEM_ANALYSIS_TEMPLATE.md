@@ -8,12 +8,13 @@
 
 ---
 
-## 사전 조건 — FETCH_HEAD 설정 확인
+## 사전 조건 — FROM_LOCAL 확인
 
-아래 명령이 출력을 반환하면 설정 완료. 오류가 나면 `WD_SYNC_GUIDE.md`의 **'FROM 프로젝트 FETCH_HEAD 설정'** 섹션을 먼저 실행한다.
+FROM 프로젝트 로컬 경로(`{from_local}`)가 확정된 상태에서 이 문서를 작성한다.
+`/sync` Phase 0 완료 후 `from_local` 값이 설정된다. 수동 진행 시 `WD_SYNC_GUIDE.md` 섹션 8 참조.
 
 ```bash
-git ls-tree FETCH_HEAD --name-only | head -5
+ls "{from_local}/Assets" > /dev/null 2>&1 && echo "OK" || echo "NOT_FOUND"
 ```
 
 ---
@@ -25,13 +26,13 @@ git ls-tree FETCH_HEAD --name-only | head -5
 ```bash
 # 키워드를 최대한 많이 나열 (클래스명·타입명·인터페이스명·SaveData명·시스템 접두어 전부 포함)
 # 예: "FooManager\|FooTypes\|IFooCapable\|FooSaveData\|EFooSlot\|Foo"
-git grep -l "{grep키워드목록}" FETCH_HEAD -- "*.cs"
+grep -rl "{grep키워드목록}" "{from_local}/Assets" --include="*.cs"
 
 # TO에도 관련 파일이 있는지 동일 키워드로 확인
 grep -rl "{TO파일키워드목록}" Assets/_Project/1_Scripts --include="*.cs" -l
 
 # 찾은 각 파일에서 FROM 전용 패턴 일괄 확인 (변환 필요 여부 판별)
-git show FETCH_HEAD:{파일경로} | grep -n "ServiceAccessor\|Inject\|MessageBroker\|using Geuneda\|using UniRx\|BaseService\|DateTime\.Now\|Resources\.Load\|ToUniTask\|async void\|SavePlayerDataAsync"
+grep -n "ServiceAccessor\|Inject\|MessageBroker\|using Geuneda\|using UniRx\|BaseService\|DateTime\.Now\|Resources\.Load\|ToUniTask\|async void\|SavePlayerDataAsync" "{from_local}/{파일경로}"
 ```
 
 | FROM 파일 | 역할 | FROM 전용 패턴 | sync 유형 | TO 처리 방법 |
@@ -89,7 +90,7 @@ git show FETCH_HEAD:{파일경로} | grep -n "ServiceAccessor\|Inject\|MessageBr
 
 **FROM 전용 패턴 빠른 확인**:
 ```bash
-git show FETCH_HEAD:{파일경로} | grep -n "ServiceAccessor\|Inject\|MessageBroker\|using Geuneda\|using UniRx\|BaseService\|DateTime\.Now\|Resources\.Load\|ToUniTask\|async void\|SavePlayerDataAsync"
+grep -n "ServiceAccessor\|Inject\|MessageBroker\|using Geuneda\|using UniRx\|BaseService\|DateTime\.Now\|Resources\.Load\|ToUniTask\|async void\|SavePlayerDataAsync" "{from_local}/{파일경로}"
 ```
 
 **FROM 전용 패턴 (변환 필요)**:
@@ -199,7 +200,7 @@ grep -n "methodName" Assets/_Project/1_Scripts/UI/Components/TargetComponent.cs
 *(sync 파일에서 uiManager.Show<T>() 호출하는 T를 전부 추출)*
 
 ```bash
-git show FETCH_HEAD:{sync파일경로} | grep -n "Show<\|Hide<"
+grep -n "Show<\|Hide<" "{from_local}/{sync파일경로}"
 ```
 
 | 참조 클래스 | TO 존재 여부 | 처리 |
@@ -214,7 +215,7 @@ git show FETCH_HEAD:{sync파일경로} | grep -n "Show<\|Hide<"
 
 ```bash
 # FROM partial 파일에서 메서드 호출 추출 (대문자 시작 메서드명 패턴)
-git show FETCH_HEAD:{Partial파일경로} | grep -n "\.[A-Z][a-zA-Z]*(\|[^\.][A-Z][a-zA-Z]*(" | grep -v "\/\/\|public\|private\|protected\|override\|class "
+grep -n "\.[A-Z][a-zA-Z]*(\|[^\.][A-Z][a-zA-Z]*(" "{from_local}/{Partial파일경로}" | grep -v "\/\/\|public\|private\|protected\|override\|class "
 # 추출된 메서드명을 TO 동일 클래스에서 확인
 grep -n "메서드명" Assets/_Project/1_Scripts/Core/Managers/FooManager.cs
 ```
@@ -340,7 +341,7 @@ NotifyFooStateChanged();   // ← 추가 필요 (TO에 없음)
 
 ```bash
 # FROM 원본 추출
-git show FETCH_HEAD:Assets/_Project/1_Scripts/Core/Managers/FooManager.cs > /tmp/from_FooManager.cs
+cp "{from_local}/Assets/_Project/1_Scripts/Core/Managers/FooManager.cs" /tmp/from_FooManager.cs
 
 # TO sync본과 비교 (줄 단위)
 diff /tmp/from_FooManager.cs Assets/_Project/1_Scripts/Core/Managers/FooManager.cs

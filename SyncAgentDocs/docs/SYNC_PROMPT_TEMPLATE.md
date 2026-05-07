@@ -17,6 +17,7 @@
 |---|---|---|
 | `{시스템명}` | sync할 시스템 이름 | |
 | `{FROM_PATH}` | 소스 프로젝트 루트 경로 (Phase 5-B 필수) | |
+| `{FROM_LOCAL}` | FROM 프로젝트 로컬 경로 (Phase 0에서 확정. remote인 경우 worktree 경로) | |
 | `{TO_PATH}` | 대상 프로젝트 루트 경로 (Phase 5-B 필수) | |
 | `{grep키워드목록}` | FROM grep 대상 키워드들 (`\|`로 구분, 아래 작성 지침 참조) | |
 | `{TO파일키워드목록}` | TO 파일명 grep 키워드들 (`\|`로 구분, 아래 작성 지침 참조) | |
@@ -57,20 +58,20 @@ Phase 4(sync 실행)는 내가 명시적으로 "sync 시작" 또는 "진행해" 
 
 ---
 
-## Phase 0 — FETCH_HEAD 설정 확인
+## Phase 0 — FROM_LOCAL 확인
 
-sync을 시작하기 전에 FROM 코드를 읽을 수 있는지 확인해줘.
+sync을 시작하기 전에 FROM 프로젝트 로컬 경로를 확인해줘.
 
 ```bash
-git ls-tree FETCH_HEAD --name-only | head -5
+ls "{FROM_LOCAL}/Assets" > /dev/null 2>&1 && echo "OK" || echo "NOT_FOUND"
 ```
 
-- 출력이 정상이면 Phase 1로 진행한다.
-- 오류가 나면 WD_SYNC_GUIDE.md 섹션 8의 FETCH_HEAD 설정 절차를 먼저 실행하고, 완료 후 나에게 보고한다.
+- OK이면 Phase 1로 진행한다.
+- NOT_FOUND이면 FROM 경로가 올바른지 확인한다.
+  - remote 브랜치/URL인 경우: `git worktree add` 로 임시 경로 생성 (WD_SYNC_GUIDE.md 섹션 8 참조)
 
 Phase 0 완료 후 보고 형식:
-- FETCH_HEAD 상태 (정상 / 설정 필요)
-- 설정이 필요했다면 완료 여부
+- FROM_LOCAL 상태 (정상 / 경로 오류)
 - "Phase 1(FROM 전수조사)을 진행할까요?"
 
 ---
@@ -80,7 +81,7 @@ Phase 0 완료 후 보고 형식:
 아래 명령으로 FROM에서 {시스템명} 시스템을 참조하는 파일을 전부 찾아줘.
 
 ```bash
-git grep -l "{grep키워드목록}" FETCH_HEAD -- "*.cs"
+grep -rl "{grep키워드목록}" "{FROM_LOCAL}/Assets" --include="*.cs"
 ```
 
 동시에 TO에서도 관련 파일이 이미 있는지 확인해줘.
@@ -130,11 +131,11 @@ grep -rn "메서드명" Assets/_Project/1_Scripts/Core/Managers/
 grep -rn "SetPresetNumbers\|RefreshAll\|등호출메서드" Assets/_Project/1_Scripts/UI/
 
 # C-3. uiManager.Show<T>()에서 T가 TO에 존재하는지 확인
-git show FETCH_HEAD:{파일경로} | grep -n "Show<\|Hide<"
+grep -n "Show<\|Hide<" "{FROM_LOCAL}/{파일경로}"
 grep -rn "class SkillEquipPopup\|class 해당클래스명" Assets/_Project/1_Scripts/UI/
 
 # C-4. partial class라면: 동일 클래스 다른 partial의 메서드 참조 확인
-git show FETCH_HEAD:{Partial파일경로} | grep -n "\.[A-Z][a-zA-Z]*(\|^[[:space:]]*[A-Z][a-zA-Z]*(" | grep -v "\/\/\|public\|private\|protected\|override\|class "
+grep -n "\.[A-Z][a-zA-Z]*(\|^[[:space:]]*[A-Z][a-zA-Z]*(" "{FROM_LOCAL}/{Partial파일경로}" | grep -v "\/\/\|public\|private\|protected\|override\|class "
 grep -n "해당메서드명" Assets/_Project/1_Scripts/Core/Managers/FooManager.cs
 ```
 
@@ -162,7 +163,7 @@ Phase 2 결과와 첨부한 SYSTEM_ANALYSIS_TEMPLATE.md를 참고해서
 - 섹션 4: TO 수정 필요 기존 파일 목록 및 수정 내용 (before/after 코드 스니펫 포함) — **PARTIAL 처리로 추가/수정해야 할 TO 기존 파일도 여기 포함**
 - 섹션 5: sync 체크리스트 (공통 + 신규 파일 + 기존 파일 수정 + **PARTIAL 파일 처리**)
 - 섹션 6: 이 시스템 특유의 주의사항 (초기화 순서, 런타임 주의사항 포함) + **PARTIAL 처리 내역 및 향후 조치**
-- 섹션 7: diff 비교 전략 — 신규 생성 파일 전체의 diff 확인 명령어 (`git show FETCH_HEAD:{경로} > /tmp/from_{파일명}` + `diff` 명령) 및 예상 diff 노이즈 표 (파일 | 적용 규칙 | 예상 diff). 변환 불필요 파일은 "diff 0줄" 명시.
+- 섹션 7: diff 비교 전략 — 신규 생성 파일 전체의 diff 확인 명령어 (`cp "{FROM_LOCAL}/{경로}" /tmp/from_{파일명}` + `diff` 명령) 및 예상 diff 노이즈 표 (파일 | 적용 규칙 | 예상 diff). 변환 불필요 파일은 "diff 0줄" 명시.
 
 SaveData 클래스 위치는 SaveDataTypes.cs가 아닐 수 있으므로 반드시 grep으로 확인:
 
