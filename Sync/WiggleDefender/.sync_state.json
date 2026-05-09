@@ -1,24 +1,18 @@
 {
   "from": "origin/temp-bunker/dev",
-  "from_local": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker",
+  "from_local": "/tmp/sync_CheatManager_1778331022",
   "to": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender",
-  "system": "DavyJones",
-  "keys": "DavyJones,davyjones,skin_davyjones,UI_skin_davyjones",
-  "phase_limit": "5c",
-  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-07_DavyJones",
-  "next_phase": "done",
+  "system": "CheatManager",
+  "keys": "CheatCommandLibrary,CheatManager",
+  "phase_limit": "4",
+  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-09_CheatManager",
+  "next_phase": "3",
   "completed_phases": {
-    "0": "temp-bunker/dev worktree 업데이트 완료 (3975fa1a14)",
-    "1": "파일 탐색 완료: 총 33개 (프리팹 7, 애니 5, 이미지 21, .cs 수정 2)",
-    "2": "분석 완료: .cs 2개 수정, 프리팹 7개/애니 5개/이미지 21개 복사, Resources→Resources_moved 경로 변환 필요, SO 5개+JSON 추가",
-    "3": "SYNC_PLAN.md 생성 완료: 8스텝, 체크리스트 14항목, 블로커 없음",
-    "4": "파일 복사 33개 + .cs 2개 수정 + JSON 수정 완료, 오류 없음",
-    "5a": "프리팹 목록 생성 완료. 무효 참조 1개 발견: Wind_7.mat (5b에서 처리)",
-    "5b": "Wind_7.mat 누락 에셋 복사 완료, GUID 일치 확인",
-    "5c": "UI_Marine.prefab 패치 완료: DavyJones 스킨 노드 11개 + PrefabInstance 2개 추가 (+973줄)",
-    "post": "누락 항목 추가: CurrencyData(1187/1188), WeaponskinData SO 5개+JSON, EffectData 139, ProfileIconData 57, icon/weapon_transcend_i 스프라이트, MarineSkinData costType1 수정"
+    "0": "temp-bunker/dev worktree 설정 완료",
+    "1": "FROM 4개 파일 발견 (CheatManager.cs, CheatCommandLibrary.cs, CheatManagerWindow.cs, ManagerFactory.cs), UI 파일 2개 신규 (uxml/uss)",
+    "2": "CheatManagerWindow IMGUI→UIToolkit 교체 확인, CheatManager.cs 변경 불필요, ManagerFactory 도입 불필요"
   },
   "worktree_created": true,
-  "worktree_path": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender/.claude/worktrees/temp-bunker",
-  "plan_path": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-07_DavyJones/DavyJones_SYNC_PLAN.md"
+  "worktree_path": "/tmp/sync_CheatManager_1778331022",
+  "notes": "UI sync only - do NOT change actual cheat commands/content"
 }
