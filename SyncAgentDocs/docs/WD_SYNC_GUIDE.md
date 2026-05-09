@@ -138,12 +138,18 @@ await tween.AsyncWaitForCompletion();
 
 #### 규칙 10. `DateTime.Now` → `ServerTimeManager.NowUnscaled`
 
+**런타임 코드에만 적용한다. Editor 코드(`UnityEditor` namespace, `EditorWindow` 상속 클래스)에는 적용하지 않는다.**
+Editor 윈도우는 매니저 인스턴스에 접근할 수 없으므로 `DateTime.Now`를 그대로 유지한다.
+
 ```csharp
-// FROM / 금지
+// FROM / 금지 (런타임 코드)
 var now = DateTime.Now;
 
-// TO
+// TO (런타임 코드)
 var now = ServerTimeManager.NowUnscaled;
+
+// Editor 코드는 그대로 유지
+string entry = $"[{DateTime.Now:HH:mm:ss}] {message}"; // ✅ EditorWindow에서는 OK
 ```
 
 #### 규칙 11. `Resources.Load` → `ResourceManager.LoadResource<T>()`

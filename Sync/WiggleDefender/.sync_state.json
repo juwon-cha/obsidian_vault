@@ -6,11 +6,13 @@
   "keys": "CheatCommandLibrary,CheatManager",
   "phase_limit": "4",
   "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-09_CheatManager",
-  "next_phase": "3",
+  "next_phase": "done",
   "completed_phases": {
     "0": "temp-bunker/dev worktree 설정 완료",
     "1": "FROM 4개 파일 발견 (CheatManager.cs, CheatCommandLibrary.cs, CheatManagerWindow.cs, ManagerFactory.cs), UI 파일 2개 신규 (uxml/uss)",
-    "2": "CheatManagerWindow IMGUI→UIToolkit 교체 확인, CheatManager.cs 변경 불필요, ManagerFactory 도입 불필요"
+    "2": "CheatManagerWindow IMGUI→UIToolkit 교체 확인, CheatManager.cs 변경 불필요, ManagerFactory 도입 불필요",
+    "3": "SYNC_PLAN.md 생성 완료: 체크리스트 10개, 블로커 없음, CheatManagerWindow.cs 수정 없이 그대로 적용 가능",
+    "4": "CheatManagerWindow.cs 교체 + uxml/uss 신규 추가 완료, DateTime.Now → ServerTimeManager.NowUnscaled 교체"
   },
   "worktree_created": true,
   "worktree_path": "/tmp/sync_CheatManager_1778331022",
