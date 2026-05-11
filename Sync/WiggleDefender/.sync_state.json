@@ -1,20 +1,18 @@
 {
   "from": "origin/temp-bunker/dev",
-  "from_local": "/tmp/sync_CheatManager_1778331022",
+  "from_local": "/tmp/sync_Minion_DarkArchon_1778500357",
   "to": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender",
-  "system": "CheatManager",
-  "keys": "CheatCommandLibrary,CheatManager",
-  "phase_limit": "4",
-  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-09_CheatManager",
-  "next_phase": "done",
+  "system": "Minion_DarkArchon",
+  "keys": "Minion_DarkArchon,Minion,DarkArchon",
+  "phase_limit": "5c",
+  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-11_Minion_DarkArchon",
+  "next_phase": "4",
   "completed_phases": {
-    "0": "temp-bunker/dev worktree 설정 완료",
-    "1": "FROM 4개 파일 발견 (CheatManager.cs, CheatCommandLibrary.cs, CheatManagerWindow.cs, ManagerFactory.cs), UI 파일 2개 신규 (uxml/uss)",
-    "2": "CheatManagerWindow IMGUI→UIToolkit 교체 확인, CheatManager.cs 변경 불필요, ManagerFactory 도입 불필요",
-    "3": "SYNC_PLAN.md 생성 완료: 체크리스트 10개, 블로커 없음, CheatManagerWindow.cs 수정 없이 그대로 적용 가능",
-    "4": "CheatManagerWindow.cs 교체 + uxml/uss 신규 추가 완료, DateTime.Now → ServerTimeManager.NowUnscaled 교체"
+    "0": "temp-bunker/dev worktree 설정 완료 (/tmp/sync_Minion_DarkArchon_1778500357)",
+    "1": "DarkArchon 핵심 신규 CS 4개 (DarkPriest_Controller, DarkPriestTrapSkill, MinionDarkTrapComponent, MinionDarkConfigSO), 프리팹 3개 신규, 기존 관련 파일 다수 존재",
+    "2": "신규 4개 분석 완료. 핵심 차단: EDebuffType.Confuse 없음, OnDebuffEnded 없음, LowLevelPhysicsHelper 없음, ITickService→Update() 변환 필요. MinionManager/BaseMinionController는 TO가 최신이므로 복사 금지.",
+    "3": "Minion_DarkArchon_SYNC_PLAN.md 생성 완료: 체크리스트 25개, 블로커 4개(EDebuffType.Confuse/OnDebuffEnded/EEffectType/Confuse처리), 변환 코드 포함"
   },
   "worktree_created": true,
-  "worktree_path": "/tmp/sync_CheatManager_1778331022",
-  "notes": "UI sync only - do NOT change actual cheat commands/content"
+  "worktree_path": "/tmp/sync_Minion_DarkArchon_1778500357"
 }
