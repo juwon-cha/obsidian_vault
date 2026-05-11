@@ -12,6 +12,10 @@
 기존 테이블에는 현재 플로어(`bpCurrentFloor`)와 층별 스핀 횟수(`bpFloorSpinCounts`)만 존재했으나,  
 `bpFloorSpinCounts`는 타겟 수령 시 초기화되기 때문에 누적 이력이 남지 않는 구조였음.
 
+추가로 기획자가 **어느 층에서 스핀을 멈추고 이탈하는지** 파악하고 싶다는 요청이 있었음.  
+`burger_pyramid_cycle_complete`는 타겟 수령 시에만 전송되어 미완성 사이클을 추적할 수 없었으므로,  
+`burger_pyramid_progress_snapshot` 이벤트를 별도 추가함.
+
 ---
 
 ## 승급 경로 분류
@@ -59,29 +63,52 @@ if (unusedSpins > 0)
 ### 1. `BurgerPyramidSaveData` — 필드 추가 (`SaveDataTypes.cs`)
 
 ```csharp
+// ── 플로어 진행 (기존 필드에 bpFieldResetCount 추가)
+public int bpFieldResetCount = 0;  // 시즌 내 완료한 사이클 수
+
 // 층별 승급 통계 (타겟 수령 시 서버 전송 후 초기화)
 public int[] bpCycleJackpotAdvanceCounts = new int[5];    // 층별 일반 잭팟 승급 여부
 public int[] bpCycleFloorPityAdvanceCounts = new int[5];  // 층별 층 천장 승급 여부
 public int bpCycleGlobalPityTriggered = 0;                // 글로벌 천장 발동 여부 (단일 int)
 ```
 
+**`bpCycleJackpotAdvanceCounts` / `bpCycleFloorPityAdvanceCounts`**
 - **단위**: 사이클(타겟 수령 1회 = 1사이클)
 - **인덱스**: `[0]` = 1층→2층, `[1]` = 2층→3층, `[2]` = 3층→4층, `[3]` = 4층→5층
-- **초기화 시점**: 타겟 수령 후 `ResetField()` 호출 시, 시즌 변경 시 `ResetForNewSeason()` 호출 시
-- **인덱스 [4] 항상 0**: `bpCycleJackpotAdvanceCounts[4]`와 `bpCycleFloorPityAdvanceCounts[4]`는 항상 0이다. 5층은 타겟 지급층이므로 잭팟/층 천장 승급 자체가 없다.
+- **초기화 시점**: `ResetField()` (사이클 완료 후), `ResetForNewSeason()` (시즌 변경 시)
+- **인덱스 [4] 항상 0**: 5층은 타겟 지급층이므로 잭팟/층 천장 승급 자체가 없다.
 
-### 2. Airbridge 이벤트 파라미터 (`BurgerPyramidManager.cs`)
+**`bpFieldResetCount`**
+- `ResetField()` 호출 시마다 `++` 증가 → 시즌 내 완료한 사이클 수를 나타냄
+- `ResetForNewSeason()` 에서 `0`으로 초기화
+- `burger_pyramid_cycle_complete` 캡처 시점에서 `bpFieldResetCount + 1` = 현재 완료 중인 사이클 번호
+
+### 2. Airbridge 이벤트 — 두 종류
 
 승급 통계는 서버 DB가 아닌 `AnalyticsEventLogger`를 통해 Firebase Analytics + Airbridge로 전송된다.  
 Airbridge는 배열 타입을 지원하지 않으므로 배열을 개별 키로 펼쳐서 전송한다.
 
+#### `burger_pyramid_cycle_complete` — 사이클 완료 시
+
 | 파라미터 키 | 값 | 설명 |
 |---|---|---|
 | `season_number` | int | 현재 시즌 번호 |
+| `cycle_number` | int | 시즌 내 몇 번째 사이클 (1부터 시작) |
 | `floor1_jackpot` ~ `floor4_jackpot` | 0 또는 1 | 층별 일반 잭팟 승급 여부 |
 | `floor1_floor_pity` ~ `floor4_floor_pity` | 0 또는 1 | 층별 층 천장 승급 여부 |
 | `global_pity_triggered` | 0 또는 1 | 글로벌 천장 발동 여부 |
 | `floor1_spins` ~ `floor4_spins` | int | 층별 실제 소모 스핀 횟수 |
+
+#### `burger_pyramid_progress_snapshot` — 미완성 사이클 상태 캡처
+
+| 파라미터 키 | 값 | 설명 |
+|---|---|---|
+| `season_number` | int | 현재 시즌 번호 (`_saveData.seasonNumber` 사용) |
+| `completed_cycles` | int | 이미 완료한 사이클 수 (0이면 첫 사이클 진행 중) |
+| `current_floor` | 1~5 | 현재 층 |
+| `floor1_spins` ~ `floor4_spins` | int | 현재 사이클 층별 스핀 횟수 |
+| `total_spins` | int | 현재 사이클 총 스핀 횟수 |
+| `snapshot_reason` | string | `season_end` / `daily_reset` / `session_end` |
 
 ---
 
@@ -89,16 +116,16 @@ Airbridge는 배열 타입을 지원하지 않으므로 배열을 개별 키로 
 
 | 파일 | 변경 내용 |
 |---|---|
-| `SaveDataTypes.cs` | `BurgerPyramidSaveData`에 배열 2개 + int 2개 추가 (`bpFieldResetCount` 포함) |
+| `SaveDataTypes.cs` | `BurgerPyramidSaveData`에 int 1개(`bpFieldResetCount`) + 배열 2개 + int 1개(`bpCycleGlobalPityTriggered`) 추가 |
 | `BurgerPyramidServerTypes.cs` | 변경 없음 (승급 통계 필드를 서버로 보내지 않음) |
 | `EventBurgerPyramidService.cs` | 변경 없음 |
-| `BurgerPyramidManager.cs` | 승급 기록 로직 4곳 + 진행 스냅샷 로그 4곳 수정 (하단 상세 참조) |
+| `BurgerPyramidManager.cs` | 6곳 수정 (하단 상세 참조) |
 
 ---
 
 ## `BurgerPyramidManager.cs` 변경 상세
 
-### (1) `AdvanceFloor(bool isPity = false)` — 파라미터 추가 및 기록
+### (1) `AdvanceFloor(bool isPity = false)` — `isPity` 파라미터 추가 및 기록
 
 ```csharp
 // 변경 전
@@ -107,26 +134,34 @@ public Dictionary<ECurrencyType, int> AdvanceFloor()
 // 변경 후
 public Dictionary<ECurrencyType, int> AdvanceFloor(bool isPity = false)
 {
+    if (_saveData == null) return null;
+    if (_saveData.bpCurrentFloor >= MaxFloor) { RequestSave(); return null; }
+
     int oldFloor = _saveData.bpCurrentFloor;
+
     if (isPity)
         _saveData.bpCycleFloorPityAdvanceCounts[oldFloor - 1]++;
     else
         _saveData.bpCycleJackpotAdvanceCounts[oldFloor - 1]++;
+
+    // 천장보다 일찍 승급한 경우 미사용 스핀을 카운터에 반영 (기존 로직)
+    int unusedSpins = GetFloorPityThreshold(oldFloor) - GetFloorSpinCount(oldFloor);
+    if (unusedSpins > 0) { ... }
     // ...
 }
 ```
 
-### (2) `SpinAsync()` — `forcePromotion` 전달
+### (2) `SpinAsync()` — `AdvanceFloor`에 `isPity` 전달
 
 ```csharp
-// 변경 전 (실제 변경된 한 줄)
+// 변경 전
 var targetObtained = AdvanceFloor();
 
 // 변경 후
 var targetObtained = AdvanceFloor(isPity: forcePromotion);
 ```
 
-`forcePromotion`, `RouletteService.SpinCurrentFloor(forcePromotion)`, `result.IsTarget` 분기는 변경 전에도 존재하던 코드다. 실제 변경은 `AdvanceFloor()` → `AdvanceFloor(isPity: forcePromotion)` 한 줄뿐이다.
+`forcePromotion`은 `IsFloorPityReached(currentFloor)`의 반환값으로, 기존에도 `RouletteService.SpinCurrentFloor(forcePromotion)`에 사용되던 변수다. 실제 변경은 이 한 줄뿐이다.
 
 ### (3) `HandleGlobalGuaranteed()` — 글로벌 천장 기록
 
@@ -136,202 +171,87 @@ if (_saveData.bpCurrentFloor < MaxFloor)
     int oldFloor = _saveData.bpCurrentFloor;
     _saveData.bpCycleGlobalPityTriggered = 1;  // 배열 대신 단일 int
     _saveData.bpCurrentFloor = MaxFloor;
-    // ...
+    EventManager.Dispatch<BurgerPyramidFloorAdvancedEventData>(...);
 }
+_saveData.bpIsTargetPending = true;
 ```
 
 글로벌 천장은 구조적으로 4층(MaxFloor-1)에서만 발동되므로 배열이 필요 없다.
 
-### (4) `ResetField()` — 초기화
+### (4) `ResetField()` — 사이클 통계 초기화 + 완료 카운터 증가
 
 ```csharp
-_saveData.bpCycleJackpotAdvanceCounts = new int[MaxFloor];
-_saveData.bpCycleFloorPityAdvanceCounts = new int[MaxFloor];
-_saveData.bpCycleGlobalPityTriggered = 0;
-_saveData.bpFieldResetCount++;  // 완료 사이클 수 누적 (ResetForNewSeason에서 0으로 초기화)
-// bpFloorSpinCounts는 기존부터 ResetField()에서 초기화되고 있음
+public void ResetField()
+{
+    if (_saveData == null) return;
+
+    _saveData.bpCurrentFloor = 1;
+    for (int i = 0; i < MaxFloor; i++)
+        _saveData.bpFloorSpinCounts[i] = 0;
+    _saveData.bpTargetItemClaimed = false;
+    _saveData.bpIsTargetPending = false;
+    _saveData.bpTotalSpins = 0;
+    _saveData.bpSpinsSinceLastJackpot = 0;
+    _saveData.bpCycleJackpotAdvanceCounts = new int[MaxFloor];
+    _saveData.bpCycleFloorPityAdvanceCounts = new int[MaxFloor];
+    _saveData.bpCycleGlobalPityTriggered = 0;
+    _saveData.bpFieldResetCount++;   // ← 완료 사이클 카운터 증가
+    RequestSave();
+}
 ```
 
-### (5) `SendTargetRewardRecordAsync()` — Airbridge 이벤트 전송
+`bpFieldResetCount`는 **증가만** 한다. 시즌 내 누적이므로, 0으로 초기화는 `ResetForNewSeason()`에서만 수행된다.
+
+### (5) `SendTargetRewardRecordAsync()` — `burger_pyramid_cycle_complete` 이벤트 전송
 
 ```csharp
-// 첫 await 이전에 동기적으로 실행 — ResetField()보다 먼저 데이터 캡처
-var jackpotCounts   = (int[])(_saveData?.bpCycleJackpotAdvanceCounts?.Clone()   ?? new int[MaxFloor]);
-var floorPityCounts = (int[])(_saveData?.bpCycleFloorPityAdvanceCounts?.Clone() ?? new int[MaxFloor]);
-var spinCounts      = (int[])(_saveData?.bpFloorSpinCounts?.Clone()             ?? new int[MaxFloor]);
-int globalPity      = _saveData?.bpCycleGlobalPityTriggered ?? 0;
+public async UniTask SendTargetRewardRecordAsync(ECurrencyType rewardType, int rewardAmount = 1)
+{
+    // ...
+    try
+    {
+        var playerDataManager = Managers.Instance?.GetManager<PlayerDataManager>();
 
-AnalyticsEventLogger.LogEvent(new AnalyticsEventParams("burger_pyramid_cycle_complete")
-    .WithParameter("season_number",        _currentSeasonNumber)
-    .WithParameter("cycle_number",         (_saveData?.bpFieldResetCount ?? 0) + 1)
-    .WithParameter("floor1_jackpot",       jackpotCounts[0])
-    .WithParameter("floor2_jackpot",       jackpotCounts[1])
-    .WithParameter("floor3_jackpot",       jackpotCounts[2])
-    .WithParameter("floor4_jackpot",       jackpotCounts[3])
-    .WithParameter("floor1_floor_pity",    floorPityCounts[0])
-    .WithParameter("floor2_floor_pity",    floorPityCounts[1])
-    .WithParameter("floor3_floor_pity",    floorPityCounts[2])
-    .WithParameter("floor4_floor_pity",    floorPityCounts[3])
-    .WithParameter("global_pity_triggered", globalPity)
-    .WithParameter("floor1_spins",         spinCounts[0])
-    .WithParameter("floor2_spins",         spinCounts[1])
-    .WithParameter("floor3_spins",         spinCounts[2])
-    .WithParameter("floor4_spins",         spinCounts[3]));
+        // 첫 await 이전에 동기적으로 캡처 — 이후 ResetField()가 배열을 교체해도 영향 없음
+        var jackpotCounts   = (int[])(_saveData?.bpCycleJackpotAdvanceCounts?.Clone()   ?? new int[MaxFloor]);
+        var floorPityCounts = (int[])(_saveData?.bpCycleFloorPityAdvanceCounts?.Clone() ?? new int[MaxFloor]);
+        var spinCounts      = (int[])(_saveData?.bpFloorSpinCounts?.Clone()             ?? new int[MaxFloor]);
+        int globalPity      = _saveData?.bpCycleGlobalPityTriggered ?? 0;
+
+        AnalyticsEventLogger.LogEvent(new AnalyticsEventParams("burger_pyramid_cycle_complete")
+            .WithParameter("season_number", _currentSeasonNumber)
+            .WithParameter("cycle_number",  (_saveData?.bpFieldResetCount ?? 0) + 1)
+            .WithParameter("floor1_jackpot",     jackpotCounts[0])
+            .WithParameter("floor2_jackpot",     jackpotCounts[1])
+            .WithParameter("floor3_jackpot",     jackpotCounts[2])
+            .WithParameter("floor4_jackpot",     jackpotCounts[3])
+            .WithParameter("floor1_floor_pity",  floorPityCounts[0])
+            .WithParameter("floor2_floor_pity",  floorPityCounts[1])
+            .WithParameter("floor3_floor_pity",  floorPityCounts[2])
+            .WithParameter("floor4_floor_pity",  floorPityCounts[3])
+            .WithParameter("global_pity_triggered", globalPity)
+            .WithParameter("floor1_spins",       spinCounts[0])
+            .WithParameter("floor2_spins",       spinCounts[1])
+            .WithParameter("floor3_spins",       spinCounts[2])
+            .WithParameter("floor4_spins",       spinCounts[3]));
+
+        var recordRequest = new BurgerPyramidRecordRequest { ... };
+        var response = await _serverManager.BurgerPyramidRecordAsync(recordRequest);  // ← 첫 await
+        // ...
+    }
+}
 ```
 
-`bpFloorSpinCounts`는 기존 필드를 그대로 사용한다.  
-`AnalyticsEventLogger.LogEvent()`는 동기 호출이므로 첫 `await` 이전에 완료된다.
+**`cycle_number` 계산**: `(_saveData?.bpFieldResetCount ?? 0) + 1`  
+캡처 시점에 `bpFieldResetCount`는 아직 증가 전(이후 `ResetField()`에서 증가)이므로, `+ 1`이 현재 완료 중인 사이클 번호가 된다.
 
-`SendTargetRewardRecordAsync`는 두 경로에서 호출된다: `GrantTargetItemAndGetObtained()`(일반 타겟 보상)와 `GrantTargetSkinBoxAsync()`(스킨 박스 타겟 보상). 이벤트 전송 로직이 메서드 내부에 있으므로 두 경로 모두 자동으로 처리된다.
+`SendTargetRewardRecordAsync`는 두 경로에서 호출된다:
+- `GrantTargetItemAndGetObtained()` — 일반 타겟 보상
+- `GrantTargetSkinBoxAsync()` — 스킨 박스 타겟 보상
 
----
+두 경로 모두 `SendTargetRewardRecordAsync().Forget()` 직후 `ResetField()`를 호출하는 동일한 패턴이므로, 이벤트 전송 로직이 메서드 내부에 있어 두 경로를 모두 자동으로 처리한다.
 
-## 타이밍 안전성
-
-`SendTargetRewardRecordAsync`는 `.Forget()`으로 호출된 직후 `ResetField()`가 실행된다.
-
-```
-SendTargetRewardRecordAsync().Forget()   ← 비동기 시작
-_currencyManager.ModifyCurrency(...)
-ResetField()                             ← 배열 초기화
-```
-
-C# async/await의 특성상, `SendTargetRewardRecordAsync` 내부 코드는 첫 번째 `await` 전까지 **동기적으로** 실행된다.  
-`.Clone()` 배열 캡처와 `AnalyticsEventLogger.LogEvent()` 호출은 첫 `await`(`_serverManager.BurgerPyramidRecordAsync(...)`) 이전에 완료되므로,  
-이후 `ResetField()`가 배열을 교체해도 전송 데이터는 영향받지 않는다.
-
----
-
-## Airbridge 이벤트 예시
-
-승급 타입 파라미터는 **단일 사이클 내 0 또는 1만 가능**하다.  
-한 사이클은 1층→5층 단방향이므로 같은 층을 두 번 승급할 수 없기 때문이다.
-
-```
-// 이벤트명: burger_pyramid_cycle_complete
-// 해석: 1층→잭팟(23스핀), 2층→층천장(40스핀), 3층→잭팟(8스핀), 4층→20번째 스핀에서 글로벌천장 발동
-
-season_number        = 2
-floor1_jackpot       = 1,  floor2_jackpot      = 0,  floor3_jackpot      = 1,  floor4_jackpot      = 0
-floor1_floor_pity    = 0,  floor2_floor_pity   = 1,  floor3_floor_pity   = 0,  floor4_floor_pity   = 0
-global_pity_triggered = 1
-floor1_spins         = 23, floor2_spins        = 40, floor3_spins        = 8,  floor4_spins        = 20
-```
-
-`global_pity_triggered = 1`이면 4층에서 글로벌 천장이 발동됐음을 의미한다.  
-`floor4_spins = 20`은 4층 임계값(20스핀)까지 정상 진행 후 발동됐음을 나타낸다. 4층이 "스킵"되는 구조가 아니라, 4층의 마지막 스핀과 동시에 글로벌 천장이 발동된다.  
-`floor4_spins`(5층에 해당하는 파라미터 없음)는 5층이 스핀 없이 타겟 지급층이므로 전송하지 않는다.
-
-### 시즌 내 다중 사이클 누적 예시
-
-한 시즌에 사이클을 3회 완료한 경우, Airbridge에는 이벤트 3건이 적재된다.
-
-| 이벤트 | floor1_jackpot | floor1_floor_pity | global_pity_triggered | floor1_spins |
-|---|---|---|---|---|
-| 사이클 1 | 1 | 0 | 0 | 23 |
-| 사이클 2 | 0 | 1 | 1 | 60 |
-| 사이클 3 | 1 | 0 | 0 | 11 |
-| **시즌 SUM / AVG** | **2** | **1** | **1** | **AVG 31.3** |
-
-- 승급 경로 파라미터: `SUM`으로 시즌 내 경로별 승급 횟수 집계
-- 스핀 횟수 파라미터: `AVG`로 층별 평균 소모 스핀 수 집계
-
----
-
-## 기획자가 이 데이터로 할 수 있는 분석
-
-데이터는 Airbridge 대시보드 또는 Airbridge Raw Data Export(BigQuery/S3 연동)에서 조회한다.  
-이벤트명: `burger_pyramid_cycle_complete`
-
-### 층별 천장 발동률
-```sql
--- 2층 승급 중 층 천장이 얼마나 발동했는가 (시즌별)
-SELECT
-    season_number,
-    SUM(floor2_floor_pity) AS floor2_pity,
-    SUM(floor2_jackpot)    AS floor2_jackpot,
-    ROUND(SUM(floor2_floor_pity) * 100.0 / COUNT(*), 1) AS floor2_pity_rate
-FROM burger_pyramid_cycle_complete
-GROUP BY season_number;
-```
-
-### 층별 평균 소모 스핀 수
-```sql
--- 잭팟으로 승급한 경우만 필터링해 실질 평균 산출
-SELECT
-    season_number,
-    AVG(floor1_spins) FILTER (WHERE floor1_jackpot = 1) AS floor1_avg_spins,
-    AVG(floor2_spins) FILTER (WHERE floor2_jackpot = 1) AS floor2_avg_spins,
-    AVG(floor3_spins) FILTER (WHERE floor3_jackpot = 1) AS floor3_avg_spins
-FROM burger_pyramid_cycle_complete
-GROUP BY season_number;
-```
-
-### 글로벌 천장 발동 비율
-```sql
--- 전체 수령 건 중 글로벌 천장이 발동된 비율
-SELECT
-    season_number,
-    COUNT(*) AS total_claims,
-    SUM(global_pity_triggered) AS global_pity_claims,
-    ROUND(SUM(global_pity_triggered) * 100.0 / COUNT(*), 1) AS global_pity_rate
-FROM burger_pyramid_cycle_complete
-GROUP BY season_number;
-```
-
-### 시즌별 승급 경로 퍼널
-```sql
-SELECT
-    season_number,
-    SUM(floor1_jackpot)    AS floor1_jackpot,
-    SUM(floor1_floor_pity) AS floor1_floor_pity,
-    SUM(floor2_jackpot)    AS floor2_jackpot,
-    SUM(floor2_floor_pity) AS floor2_floor_pity,
-    SUM(floor3_jackpot)    AS floor3_jackpot,
-    SUM(floor3_floor_pity) AS floor3_floor_pity,
-    SUM(floor4_jackpot)    AS floor4_jackpot,
-    SUM(floor4_floor_pity) AS floor4_floor_pity,
-    SUM(global_pity_triggered) AS global_pity_total
-FROM burger_pyramid_cycle_complete
-GROUP BY season_number;
-```
-
----
-
----
-
-## 미완성 사이클 추적: burger_pyramid_progress_snapshot
-
-`burger_pyramid_cycle_complete`는 타겟 수령(사이클 완료) 시에만 전송된다.  
-유저가 중간 층에서 스핀을 멈추거나 시즌이 종료된 경우, 어느 층에 잔류했는지 알 수 없다.  
-이를 보완하기 위해 `burger_pyramid_progress_snapshot` 이벤트를 세 시점에 전송한다.
-
-### 발화 시점 및 구현 위치
-
-| `snapshot_reason` | 발화 시점 | 구현 위치 |
-|---|---|---|
-| `season_end` | 시즌 리셋 직전 (데이터 소실 전 마지막 상태 캡처) | `ResetForNewSeason()` 진입부 |
-| `daily_reset` | 일일 리셋 실행 시 | `PerformDailyReset()` 진입부 |
-| `session_end` | 앱 백그라운드 전환 시 | `OnApplicationPause(true)` |
-
-`event_popup_close`는 하루에 수십 회 발화되어 동일 상태 스냅샷이 중복 적재되므로 제외.
-
-### 이벤트 파라미터
-
-| 파라미터 키 | 값 | 설명 |
-|---|---|---|
-| `season_number` | int | 현재 시즌 번호 (`_saveData.seasonNumber` 사용 — 시즌 리셋 전 기준) |
-| `current_floor` | 1~5 | 현재 층 |
-| `floor1_spins` ~ `floor4_spins` | int | 현재 사이클 내 층별 스핀 횟수 |
-| `total_spins` | int | 현재 사이클 총 스핀 횟수 |
-| `snapshot_reason` | string | 발화 이유 (`season_end` / `daily_reset` / `session_end`) |
-
-### 전송 조건
-
-`bpTotalSpins == 0 && bpCurrentFloor == 1`이면 전송하지 않는다.  
-사이클을 시작하지 않은 상태의 노이즈를 제거하기 위함이다.
-
-### 구현 코드 (`BurgerPyramidManager.cs`)
+### (6) `SendProgressSnapshotLog()` — `burger_pyramid_progress_snapshot` 이벤트 전송
 
 ```csharp
 private void SendProgressSnapshotLog(string reason)
@@ -345,32 +265,197 @@ private void SendProgressSnapshotLog(string reason)
         .WithParameter("season_number",    _saveData.seasonNumber)
         .WithParameter("completed_cycles", _saveData.bpFieldResetCount)
         .WithParameter("current_floor",    _saveData.bpCurrentFloor)
-        .WithParameter("floor1_spins",    spinCounts[0])
-        .WithParameter("floor2_spins",    spinCounts[1])
-        .WithParameter("floor3_spins",    spinCounts[2])
-        .WithParameter("floor4_spins",    spinCounts[3])
-        .WithParameter("total_spins",     _saveData.bpTotalSpins)
-        .WithParameter("snapshot_reason", reason));
+        .WithParameter("floor1_spins",     spinCounts[0])
+        .WithParameter("floor2_spins",     spinCounts[1])
+        .WithParameter("floor3_spins",     spinCounts[2])
+        .WithParameter("floor4_spins",     spinCounts[3])
+        .WithParameter("total_spins",      _saveData.bpTotalSpins)
+        .WithParameter("snapshot_reason",  reason));
 }
 ```
 
-> **`_saveData.seasonNumber` vs `_currentSeasonNumber`**  
-> `season_end` 발화 시점에 `_currentSeasonNumber`는 이미 새 시즌으로 갱신되어 있다.  
-> `_saveData.seasonNumber`는 리셋 전이므로 이전 시즌 번호를 정확히 가리킨다.
+**`_saveData.seasonNumber` vs `_currentSeasonNumber` 사용 이유**  
+`season_end` 발화 시점(`ResetForNewSeason()` 진입부)에서 `_currentSeasonNumber`는 이미 새 시즌 번호로 갱신되어 있다. `_saveData.seasonNumber`는 아직 리셋 전이므로 이전 시즌 번호를 정확히 가리킨다. 모든 reason에서 `_saveData.seasonNumber`를 쓰면 항상 올바른 값이 보장된다.
 
-### 기획자가 이 데이터로 할 수 있는 분석
+**전송 조건** (`bpTotalSpins == 0 && bpCurrentFloor == 1` 시 전송 안 함)  
+사이클을 시작하지 않은 상태 — 아직 스핀도 안 했고 1층에 있는 초기 상태 — 의 노이즈를 제거한다.
 
-```sql
--- 시즌 종료 시점 기준 층별 잔류 유저 수 (season_end만 필터링)
-SELECT
-    season_number,
-    current_floor,
-    COUNT(DISTINCT user_id) AS stranded_users
-FROM burger_pyramid_progress_snapshot
-WHERE snapshot_reason = 'season_end'
-GROUP BY season_number, current_floor
-ORDER BY season_number, current_floor;
+**호출 위치 3곳**
+
+| 호출 위치 | `reason` 값 |
+|---|---|
+| `OnApplicationPause(pauseStatus: true)` | `"session_end"` |
+| `ResetForNewSeason()` — `_saveData.seasonNumber` 갱신 직전 | `"season_end"` |
+| `PerformDailyReset()` — 퀘스트 리셋 직전 | `"daily_reset"` |
+
+---
+
+## 타이밍 안전성
+
+### `burger_pyramid_cycle_complete` — `.Forget()` 패턴
+
+`SendTargetRewardRecordAsync`는 `.Forget()`으로 호출된 직후 `ResetField()`가 실행된다.
+
 ```
+SendTargetRewardRecordAsync().Forget()   ← 비동기 시작
+_currencyManager.ModifyCurrency(...)
+ResetField()                             ← 배열 초기화 + bpFieldResetCount++
+```
+
+C# async/await의 특성상, `SendTargetRewardRecordAsync` 내부 코드는 첫 번째 `await` 전까지 **동기적으로** 실행된다.  
+`.Clone()` 배열 캡처와 `AnalyticsEventLogger.LogEvent()` 호출은 첫 `await`(`BurgerPyramidRecordAsync`) 이전에 완료되므로, 이후 `ResetField()`가 배열을 교체해도 전송 데이터는 영향받지 않는다.
+
+### `burger_pyramid_progress_snapshot` — 동기 호출
+
+`SendProgressSnapshotLog()`는 `async`가 아닌 동기 메서드다. 내부에서 `bpFloorSpinCounts`를 `.Clone()`하고 `AnalyticsEventLogger.LogEvent()`를 호출한다. 타이밍 문제 없음.
+
+---
+
+## Airbridge 이벤트 예시
+
+### `burger_pyramid_cycle_complete`
+
+승급 타입 파라미터는 **단일 사이클 내 0 또는 1만 가능**하다.  
+한 사이클은 1층→5층 단방향이므로 같은 층을 두 번 승급할 수 없기 때문이다.
+
+```
+// 해석: 시즌 2, 첫 번째 사이클
+//       1층→잭팟(23스핀), 2층→층천장(40스핀), 3층→잭팟(8스핀), 4층→20번째 스핀에서 글로벌천장 발동
+
+season_number         = 2
+cycle_number          = 1
+floor1_jackpot        = 1,  floor2_jackpot       = 0,  floor3_jackpot       = 1,  floor4_jackpot       = 0
+floor1_floor_pity     = 0,  floor2_floor_pity    = 1,  floor3_floor_pity    = 0,  floor4_floor_pity    = 0
+global_pity_triggered = 1
+floor1_spins          = 23, floor2_spins         = 40, floor3_spins         = 8,  floor4_spins         = 20
+```
+
+`global_pity_triggered = 1`이면 4층에서 글로벌 천장이 발동됐음을 의미한다.  
+`floor4_spins = 20`은 4층 임계값(20스핀)까지 정상 진행 후 발동됐음을 나타낸다. 4층이 "스킵"되는 구조가 아니라, 4층의 마지막 스핀과 동시에 글로벌 천장이 발동된다.
+
+### 시즌 내 다중 사이클 — `cycle_complete` 3건 적재 예시
+
+| `cycle_number` | `floor1_jackpot` | `floor1_floor_pity` | `global_pity_triggered` | `floor1_spins` |
+|---|---|---|---|---|
+| 1 | 1 | 0 | 0 | 23 |
+| 2 | 0 | 1 | 1 | 60 |
+| 3 | 1 | 0 | 0 | 11 |
+| **SUM / AVG** | **2** | **1** | **1** | **AVG 31.3** |
+
+- 승급 경로 파라미터: `SUM`으로 시즌 내 경로별 승급 횟수 집계
+- 스핀 횟수 파라미터: `AVG`로 층별 평균 소모 스핀 수 집계
+
+### `burger_pyramid_progress_snapshot`
+
+```
+// 해석: 시즌 2, 2사이클 완료 후 3번째 사이클 중 2층에서 시즌 종료
+
+season_number    = 2
+completed_cycles = 2       ← 이미 완료한 사이클 수
+current_floor    = 2       ← 현재 멈춘 층
+floor1_spins     = 60      ← 3번째 사이클에서 1층을 천장까지 채움
+floor2_spins     = 14      ← 2층에서 14스핀 후 이탈
+floor3_spins     = 0
+floor4_spins     = 0
+total_spins      = 14      ← 현재 사이클 총 스핀 (floor2부터 카운트됨에 주의)
+snapshot_reason  = "season_end"
+```
+
+> `total_spins`는 현재 사이클(`ResetField()` 이후)의 스핀 수만 카운트한다.  
+> 위 예시에서 1층 60스핀은 층 천장 패딩(AdvanceFloor의 unusedSpins 로직)으로 `bpTotalSpins`에 반영되어 있으므로 `total_spins = 14`가 아니라 더 높을 수 있다. 실질적으로 "몇 층에서 멈췄는가"는 `current_floor`와 해당 층의 `floorN_spins`로 판단한다.
+
+---
+
+## 기획자가 이 데이터로 할 수 있는 분석 (Airbridge 대시보드)
+
+**공통 경로**: Airbridge 콘솔 → Analytics → Events
+
+> 분석 전 커스텀 파라미터가 등록되어 있어야 한다. 하단 "Airbridge 커스텀 파라미터 등록" 섹션 참고.
+
+---
+
+### 분석 A. 어느 층에서 이탈하는가 (`progress_snapshot`)
+
+**핵심 질문**: 시즌이 끝날 때 유저들이 어느 층에 머물러 있었는가?
+
+1. 이벤트 검색창에 `burger_pyramid_progress_snapshot` 입력
+2. **Filter** 추가 → `snapshot_reason` = `season_end`
+3. **Breakdown** → `current_floor` 선택
+4. 날짜 범위를 분석하려는 시즌 기간으로 설정
+
+**결과 해석**: `current_floor` 값별 이벤트 수가 표시된다.  
+`current_floor = 2`가 가장 많다면 2층에서 가장 많이 이탈한 것.
+
+---
+
+### 분석 B. 몇 번째 사이클에서 이탈하는가 (`progress_snapshot`)
+
+**핵심 질문**: 첫 사이클에서 포기하는가, 여러 사이클을 돌다가 포기하는가?
+
+1. 이벤트: `burger_pyramid_progress_snapshot`
+2. **Filter** → `snapshot_reason` = `season_end`
+3. **Breakdown** → `completed_cycles` 선택
+
+**결과 해석**: `completed_cycles = 0`은 첫 사이클도 완주 못한 유저,  
+`completed_cycles = 2`는 2사이클 완료 후 3번째 사이클 중 이탈한 유저.
+
+---
+
+### 분석 C. 글로벌 천장 발동 비율 (`cycle_complete`)
+
+**핵심 질문**: 전체 완주 중 글로벌 천장이 발동된 비율은?
+
+**전체 완주 건수 확인**
+1. 이벤트: `burger_pyramid_cycle_complete`
+2. Filter 없음 (또는 `season_number` = N)
+3. 총 이벤트 수 메모
+
+**글로벌 천장 발동 건수 확인**
+1. 이벤트: `burger_pyramid_cycle_complete`
+2. **Filter** → `global_pity_triggered` = `1`
+3. 이벤트 수 메모
+
+발동 건수 ÷ 전체 건수 = 글로벌 천장 발동률
+
+---
+
+### 분석 D. 층별 천장 승급 비율 (`cycle_complete`)
+
+**핵심 질문**: 2층을 잭팟으로 넘는가, 천장으로 넘는가?
+
+**천장 승급 건수**
+1. 이벤트: `burger_pyramid_cycle_complete`
+2. **Filter** → `floor2_floor_pity` = `1`
+3. 이벤트 수 메모
+
+**잭팟 승급 건수**
+1. 동일 이벤트
+2. **Filter** → `floor2_jackpot` = `1`
+
+두 수를 비교해 천장/잭팟 비율을 파악한다. 다른 층도 동일한 방식으로 확인.
+
+---
+
+### 분석 E. 사이클별 완주 현황 (`cycle_complete`)
+
+**핵심 질문**: 같은 시즌에서 1사이클만 완주한 유저와 여러 사이클을 완주한 유저의 비율은?
+
+1. 이벤트: `burger_pyramid_cycle_complete`
+2. **Breakdown** → `cycle_number` 선택
+
+`cycle_number = 1`이 가장 많고 `cycle_number = 2`, `3` 순으로 줄어드는 분포가 정상.
+
+---
+
+### Airbridge 대시보드 한계
+
+| 가능 | 불가능 |
+|---|---|
+| 이벤트 수 / 유저 수 집계 | 스핀 횟수 평균(AVG) 계산 |
+| 단일 파라미터 기준 필터 · 분류 | 두 파라미터 교차 분석 |
+| 날짜별 추이 확인 | 퍼센트 자동 계산 |
+
+층별 **평균 스핀 수** 분석이 필요한 경우 Raw Data Export(BigQuery/S3 연동) 설정이 필요하다.
 
 ---
 
@@ -380,12 +465,12 @@ ORDER BY season_number, current_floor;
 |---|---|---|
 | 타겟 수령 완료된 사이클 | ✅ 수집됨 | `burger_pyramid_cycle_complete` 경유 |
 | 시즌 종료 시 미완성 사이클 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(season_end)` |
-| 앱 종료 직전 미완성 상태 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(session_end)` |
+| 앱 백그라운드 전환 시 미완성 상태 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(session_end)` |
 | 일일 리셋 시 미완성 상태 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(daily_reset)` |
-| 글로벌 천장 발동 시 4층 스핀 수 | ✅ 수집됨 | `floor_spin_counts[3] = 20` (층 임계값 도달 시 동시 발동) |
+| 글로벌 천장 발동 시 4층 스핀 수 | ✅ 수집됨 | `bpFloorSpinCounts[3]` (층 임계값 도달과 동시 발동) |
 | 스핀 0회 사이클 초기 상태 | ❌ 전송 안 함 | `bpTotalSpins == 0 && bpCurrentFloor == 1` 조건으로 필터링 |
 
-> `session_end`는 앱을 완전히 강제 종료하면 `OnApplicationPause`가 발화되지 않을 수 있다.  
+> `session_end`는 앱 강제 종료 시 `OnApplicationPause`가 발화되지 않을 수 있다.  
 > 그 경우에도 `daily_reset`과 `season_end`가 보완적으로 상태를 기록한다.
 
 ---
@@ -398,37 +483,37 @@ ORDER BY season_number, current_floor;
 
 ### 이벤트: `burger_pyramid_cycle_complete`
 
-| 파라미터 키                  | 타입  | 설명                   |
-| ----------------------- | --- | -------------------- |
-| `season_number`         | int | 시즌 번호                |
-| `cycle_number`          | int | 시즌 내 몇 번째 사이클인지 (1부터 시작) |
-| `floor1_jackpot`        | int | 1층 일반 잭팟 승급 여부 (0/1) |
-| `floor2_jackpot`        | int | 2층 일반 잭팟 승급 여부 (0/1) |
-| `floor3_jackpot`        | int | 3층 일반 잭팟 승급 여부 (0/1) |
-| `floor4_jackpot`        | int | 4층 일반 잭팟 승급 여부 (0/1) |
-| `floor1_floor_pity`     | int | 1층 층 천장 승급 여부 (0/1)  |
-| `floor2_floor_pity`     | int | 2층 층 천장 승급 여부 (0/1)  |
-| `floor3_floor_pity`     | int | 3층 층 천장 승급 여부 (0/1)  |
-| `floor4_floor_pity`     | int | 4층 층 천장 승급 여부 (0/1)  |
-| `global_pity_triggered` | int | 글로벌 천장 발동 여부 (0/1)   |
-| `floor1_spins`          | int | 1층 소모 스핀 수           |
-| `floor2_spins`          | int | 2층 소모 스핀 수           |
-| `floor3_spins`          | int | 3층 소모 스핀 수           |
-| `floor4_spins`          | int | 4층 소모 스핀 수           |
+| 파라미터 키 | 타입 | 설명 |
+|---|---|---|
+| `season_number` | int | 시즌 번호 |
+| `cycle_number` | int | 시즌 내 몇 번째 사이클 (1부터 시작) |
+| `floor1_jackpot` | int | 1층 일반 잭팟 승급 여부 (0/1) |
+| `floor2_jackpot` | int | 2층 일반 잭팟 승급 여부 (0/1) |
+| `floor3_jackpot` | int | 3층 일반 잭팟 승급 여부 (0/1) |
+| `floor4_jackpot` | int | 4층 일반 잭팟 승급 여부 (0/1) |
+| `floor1_floor_pity` | int | 1층 층 천장 승급 여부 (0/1) |
+| `floor2_floor_pity` | int | 2층 층 천장 승급 여부 (0/1) |
+| `floor3_floor_pity` | int | 3층 층 천장 승급 여부 (0/1) |
+| `floor4_floor_pity` | int | 4층 층 천장 승급 여부 (0/1) |
+| `global_pity_triggered` | int | 글로벌 천장 발동 여부 (0/1) |
+| `floor1_spins` | int | 1층 소모 스핀 수 |
+| `floor2_spins` | int | 2층 소모 스핀 수 |
+| `floor3_spins` | int | 3층 소모 스핀 수 |
+| `floor4_spins` | int | 4층 소모 스핀 수 |
 
 ### 이벤트: `burger_pyramid_progress_snapshot`
 
-| 파라미터 키           | 타입     | 설명                                    |
-| ---------------- | ------ | ------------------------------------- |
-| `season_number`   | int    | 시즌 번호                                 |
-| `completed_cycles` | int   | 이미 완료한 사이클 수 (0이면 첫 사이클 진행 중)       |
-| `current_floor`   | int    | 현재 층 (1~5)                            |
-| `floor1_spins`   | int    | 현재 사이클 1층 스핀 횟수                       |
-| `floor2_spins`   | int    | 현재 사이클 2층 스핀 횟수                       |
-| `floor3_spins`   | int    | 현재 사이클 3층 스핀 횟수                       |
-| `floor4_spins`   | int    | 현재 사이클 4층 스핀 횟수                       |
-| `total_spins`    | int    | 현재 사이클 총 스핀 횟수                        |
-| `snapshot_reason` | string | 발화 이유 (`season_end` / `daily_reset` / `session_end`) |
+| 파라미터 키             | 타입     | 설명                                           |
+| ------------------ | ------ | -------------------------------------------- |
+| `season_number`    | int    | 시즌 번호                                        |
+| `completed_cycles` | int    | 이미 완료한 사이클 수 (0이면 첫 사이클 진행 중)                |
+| `current_floor`    | int    | 현재 층 (1~5)                                   |
+| `floor1_spins`     | int    | 현재 사이클 1층 스핀 횟수                              |
+| `floor2_spins`     | int    | 현재 사이클 2층 스핀 횟수                              |
+| `floor3_spins`     | int    | 현재 사이클 3층 스핀 횟수                              |
+| `floor4_spins`     | int    | 현재 사이클 4층 스핀 횟수                              |
+| `total_spins`      | int    | 현재 사이클 총 스핀 횟수                               |
+| `snapshot_reason`  | string | `season_end` / `daily_reset` / `session_end` |
 
 > **이벤트 먼저 발생시킨 뒤 등록하면 그 이전 데이터는 소급 수집되지 않는다.** 릴리즈 전에 미리 등록할 것.
 
@@ -439,14 +524,31 @@ ORDER BY season_number, current_floor;
 Raw Data Export를 BigQuery/S3 등에 연결하면 파라미터가 다음 컬럼 구조로 적재된다.
 
 ```
+// burger_pyramid_cycle_complete
 event_name                              = "burger_pyramid_cycle_complete"
 event_datetime                          = "2026-05-11T10:23:00Z"
 custom_attributes.season_number         = 2
+custom_attributes.cycle_number          = 1
 custom_attributes.floor1_jackpot        = 1
 custom_attributes.floor2_floor_pity     = 1
 custom_attributes.global_pity_triggered = 0
 custom_attributes.floor1_spins          = 23
 ...
+
+// burger_pyramid_progress_snapshot
+event_name                               = "burger_pyramid_progress_snapshot"
+event_datetime                           = "2026-05-11T23:59:00Z"
+custom_attributes.season_number          = 2
+custom_attributes.completed_cycles       = 2
+custom_attributes.current_floor          = 2
+custom_attributes.floor1_spins           = 60
+custom_attributes.floor2_spins           = 14
+custom_attributes.total_spins            = 14
+custom_attributes.snapshot_reason        = "season_end"
+...
 ```
 
 Raw Data는 수 시간 지연이 있어 실시간 모니터링보다 기획자 주간/월간 분석에 적합하다.
+
+---
+
