@@ -89,10 +89,10 @@ Airbridge는 배열 타입을 지원하지 않으므로 배열을 개별 키로 
 
 | 파일 | 변경 내용 |
 |---|---|
-| `SaveDataTypes.cs` | `BurgerPyramidSaveData`에 배열 2개 + int 1개 추가 |
+| `SaveDataTypes.cs` | `BurgerPyramidSaveData`에 배열 2개 + int 2개 추가 (`bpFieldResetCount` 포함) |
 | `BurgerPyramidServerTypes.cs` | 변경 없음 (승급 통계 필드를 서버로 보내지 않음) |
 | `EventBurgerPyramidService.cs` | 변경 없음 |
-| `BurgerPyramidManager.cs` | 승급 기록 로직 4곳 수정 (하단 상세 참조) |
+| `BurgerPyramidManager.cs` | 승급 기록 로직 4곳 + 진행 스냅샷 로그 4곳 수정 (하단 상세 참조) |
 
 ---
 
@@ -148,6 +148,7 @@ if (_saveData.bpCurrentFloor < MaxFloor)
 _saveData.bpCycleJackpotAdvanceCounts = new int[MaxFloor];
 _saveData.bpCycleFloorPityAdvanceCounts = new int[MaxFloor];
 _saveData.bpCycleGlobalPityTriggered = 0;
+_saveData.bpFieldResetCount++;  // 완료 사이클 수 누적 (ResetForNewSeason에서 0으로 초기화)
 // bpFloorSpinCounts는 기존부터 ResetField()에서 초기화되고 있음
 ```
 
@@ -162,6 +163,7 @@ int globalPity      = _saveData?.bpCycleGlobalPityTriggered ?? 0;
 
 AnalyticsEventLogger.LogEvent(new AnalyticsEventParams("burger_pyramid_cycle_complete")
     .WithParameter("season_number",        _currentSeasonNumber)
+    .WithParameter("cycle_number",         (_saveData?.bpFieldResetCount ?? 0) + 1)
     .WithParameter("floor1_jackpot",       jackpotCounts[0])
     .WithParameter("floor2_jackpot",       jackpotCounts[1])
     .WithParameter("floor3_jackpot",       jackpotCounts[2])
@@ -296,15 +298,95 @@ GROUP BY season_number;
 
 ---
 
+---
+
+## 미완성 사이클 추적: burger_pyramid_progress_snapshot
+
+`burger_pyramid_cycle_complete`는 타겟 수령(사이클 완료) 시에만 전송된다.  
+유저가 중간 층에서 스핀을 멈추거나 시즌이 종료된 경우, 어느 층에 잔류했는지 알 수 없다.  
+이를 보완하기 위해 `burger_pyramid_progress_snapshot` 이벤트를 세 시점에 전송한다.
+
+### 발화 시점 및 구현 위치
+
+| `snapshot_reason` | 발화 시점 | 구현 위치 |
+|---|---|---|
+| `season_end` | 시즌 리셋 직전 (데이터 소실 전 마지막 상태 캡처) | `ResetForNewSeason()` 진입부 |
+| `daily_reset` | 일일 리셋 실행 시 | `PerformDailyReset()` 진입부 |
+| `session_end` | 앱 백그라운드 전환 시 | `OnApplicationPause(true)` |
+
+`event_popup_close`는 하루에 수십 회 발화되어 동일 상태 스냅샷이 중복 적재되므로 제외.
+
+### 이벤트 파라미터
+
+| 파라미터 키 | 값 | 설명 |
+|---|---|---|
+| `season_number` | int | 현재 시즌 번호 (`_saveData.seasonNumber` 사용 — 시즌 리셋 전 기준) |
+| `current_floor` | 1~5 | 현재 층 |
+| `floor1_spins` ~ `floor4_spins` | int | 현재 사이클 내 층별 스핀 횟수 |
+| `total_spins` | int | 현재 사이클 총 스핀 횟수 |
+| `snapshot_reason` | string | 발화 이유 (`season_end` / `daily_reset` / `session_end`) |
+
+### 전송 조건
+
+`bpTotalSpins == 0 && bpCurrentFloor == 1`이면 전송하지 않는다.  
+사이클을 시작하지 않은 상태의 노이즈를 제거하기 위함이다.
+
+### 구현 코드 (`BurgerPyramidManager.cs`)
+
+```csharp
+private void SendProgressSnapshotLog(string reason)
+{
+    if (_saveData == null) return;
+    if (_saveData.bpTotalSpins == 0 && _saveData.bpCurrentFloor == 1) return;
+
+    var spinCounts = (int[])(_saveData.bpFloorSpinCounts?.Clone() ?? new int[MaxFloor]);
+
+    AnalyticsEventLogger.LogEvent(new AnalyticsEventParams("burger_pyramid_progress_snapshot")
+        .WithParameter("season_number",    _saveData.seasonNumber)
+        .WithParameter("completed_cycles", _saveData.bpFieldResetCount)
+        .WithParameter("current_floor",    _saveData.bpCurrentFloor)
+        .WithParameter("floor1_spins",    spinCounts[0])
+        .WithParameter("floor2_spins",    spinCounts[1])
+        .WithParameter("floor3_spins",    spinCounts[2])
+        .WithParameter("floor4_spins",    spinCounts[3])
+        .WithParameter("total_spins",     _saveData.bpTotalSpins)
+        .WithParameter("snapshot_reason", reason));
+}
+```
+
+> **`_saveData.seasonNumber` vs `_currentSeasonNumber`**  
+> `season_end` 발화 시점에 `_currentSeasonNumber`는 이미 새 시즌으로 갱신되어 있다.  
+> `_saveData.seasonNumber`는 리셋 전이므로 이전 시즌 번호를 정확히 가리킨다.
+
+### 기획자가 이 데이터로 할 수 있는 분석
+
+```sql
+-- 시즌 종료 시점 기준 층별 잔류 유저 수 (season_end만 필터링)
+SELECT
+    season_number,
+    current_floor,
+    COUNT(DISTINCT user_id) AS stranded_users
+FROM burger_pyramid_progress_snapshot
+WHERE snapshot_reason = 'season_end'
+GROUP BY season_number, current_floor
+ORDER BY season_number, current_floor;
+```
+
+---
+
 ## 데이터 수집 한계 (검토 포인트)
 
-| 상황                  | 수집 여부    | 이유                                             |
-| ------------------- | -------- | ---------------------------------------------- |
-| 타겟 수령 완료된 사이클       | ✅ 수집됨    | `SendTargetRewardRecordAsync` 경유               |
-| 시즌 종료 시 미완성 사이클     | ❌ 수집 안 됨 | API 호출 없이 시즌 리셋됨                               |
-| 글로벌 천장 발동 시 4층 스핀 수 | ✅ 정상 수집  | `floor_spin_counts[3] = 20` (층 임계값 도달 시 동시 발동) |
+| 상황 | 수집 여부 | 이유 |
+|---|---|---|
+| 타겟 수령 완료된 사이클 | ✅ 수집됨 | `burger_pyramid_cycle_complete` 경유 |
+| 시즌 종료 시 미완성 사이클 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(season_end)` |
+| 앱 종료 직전 미완성 상태 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(session_end)` |
+| 일일 리셋 시 미완성 상태 | ✅ 수집됨 | `burger_pyramid_progress_snapshot(daily_reset)` |
+| 글로벌 천장 발동 시 4층 스핀 수 | ✅ 수집됨 | `floor_spin_counts[3] = 20` (층 임계값 도달 시 동시 발동) |
+| 스핀 0회 사이클 초기 상태 | ❌ 전송 안 함 | `bpTotalSpins == 0 && bpCurrentFloor == 1` 조건으로 필터링 |
 
-미완성 사이클 데이터가 중요한 경우, 시즌 종료 시점에 별도 아카이브 API 호출을 추가하는 것을 검토할 수 있음.
+> `session_end`는 앱을 완전히 강제 종료하면 `OnApplicationPause`가 발화되지 않을 수 있다.  
+> 그 경우에도 `daily_reset`과 `season_end`가 보완적으로 상태를 기록한다.
 
 ---
 
@@ -314,9 +396,12 @@ GROUP BY season_number;
 
 **경로**: Airbridge 콘솔 → `Settings` → `Custom Attributes` → 파라미터 추가
 
+### 이벤트: `burger_pyramid_cycle_complete`
+
 | 파라미터 키                  | 타입  | 설명                   |
 | ----------------------- | --- | -------------------- |
 | `season_number`         | int | 시즌 번호                |
+| `cycle_number`          | int | 시즌 내 몇 번째 사이클인지 (1부터 시작) |
 | `floor1_jackpot`        | int | 1층 일반 잭팟 승급 여부 (0/1) |
 | `floor2_jackpot`        | int | 2층 일반 잭팟 승급 여부 (0/1) |
 | `floor3_jackpot`        | int | 3층 일반 잭팟 승급 여부 (0/1) |
@@ -330,6 +415,20 @@ GROUP BY season_number;
 | `floor2_spins`          | int | 2층 소모 스핀 수           |
 | `floor3_spins`          | int | 3층 소모 스핀 수           |
 | `floor4_spins`          | int | 4층 소모 스핀 수           |
+
+### 이벤트: `burger_pyramid_progress_snapshot`
+
+| 파라미터 키           | 타입     | 설명                                    |
+| ---------------- | ------ | ------------------------------------- |
+| `season_number`   | int    | 시즌 번호                                 |
+| `completed_cycles` | int   | 이미 완료한 사이클 수 (0이면 첫 사이클 진행 중)       |
+| `current_floor`   | int    | 현재 층 (1~5)                            |
+| `floor1_spins`   | int    | 현재 사이클 1층 스핀 횟수                       |
+| `floor2_spins`   | int    | 현재 사이클 2층 스핀 횟수                       |
+| `floor3_spins`   | int    | 현재 사이클 3층 스핀 횟수                       |
+| `floor4_spins`   | int    | 현재 사이클 4층 스핀 횟수                       |
+| `total_spins`    | int    | 현재 사이클 총 스핀 횟수                        |
+| `snapshot_reason` | string | 발화 이유 (`season_end` / `daily_reset` / `session_end`) |
 
 > **이벤트 먼저 발생시킨 뒤 등록하면 그 이전 데이터는 소급 수집되지 않는다.** 릴리즈 전에 미리 등록할 것.
 
@@ -351,9 +450,3 @@ custom_attributes.floor1_spins          = 23
 ```
 
 Raw Data는 수 시간 지연이 있어 실시간 모니터링보다 기획자 주간/월간 분석에 적합하다.
-
----
-
-## 백엔드 팀 요청 사항
-
-없음. 승급 통계는 Airbridge 이벤트로 전송되므로 `/burgerpyramid/record` 엔드포인트 변경 불필요.
