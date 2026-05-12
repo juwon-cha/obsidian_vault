@@ -6,12 +6,16 @@
   "keys": "Minion_DarkArchon,Minion,DarkArchon",
   "phase_limit": "5c",
   "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-05-11_Minion_DarkArchon",
-  "next_phase": "4",
+  "next_phase": "6",
   "completed_phases": {
     "0": "temp-bunker/dev worktree 설정 완료 (/tmp/sync_Minion_DarkArchon_1778500357)",
     "1": "DarkArchon 핵심 신규 CS 4개 (DarkPriest_Controller, DarkPriestTrapSkill, MinionDarkTrapComponent, MinionDarkConfigSO), 프리팹 3개 신규, 기존 관련 파일 다수 존재",
     "2": "신규 4개 분석 완료. 핵심 차단: EDebuffType.Confuse 없음, OnDebuffEnded 없음, LowLevelPhysicsHelper 없음, ITickService→Update() 변환 필요. MinionManager/BaseMinionController는 TO가 최신이므로 복사 금지.",
-    "3": "Minion_DarkArchon_SYNC_PLAN.md 생성 완료: 체크리스트 25개, 블로커 4개(EDebuffType.Confuse/OnDebuffEnded/EEffectType/Confuse처리), 변환 코드 포함"
+    "3": "Minion_DarkArchon_SYNC_PLAN.md 생성 완료: 체크리스트 25개, 블로커 4개(EDebuffType.Confuse/OnDebuffEnded/EEffectType/Confuse처리), 변환 코드 포함",
+    "4": "11/11 완료: DebuffType.Confuse, EEffectType 3013/3014, DebuffController.OnDebuffEnded, MinionEnums.DarkPriestTrap, MinionSkillRegistry 등록, 신규 4개 파일 추가(ConfigSO, Controller, TrapSkill, TrapComponent)",
+    "5a": "프리팹 6개 발견: 신규 3개(DarkArchon아트/VFX_Black/DarkArchon_UI), 업데이트 3개(VFX_Trap/DarkArchon_Resources/VFX_Explo). PREFAB_PACKAGE_LIST.md 생성 완료",
+    "5b": "신규 3개/업데이트 3개 완료. GUID교체 2건(MinionDarkTrapComponent/DarkPriest_Controller). 신규에셋 7개. 미해결GUID 없음. PREFAB_SYNC_REPORT.md 생성",
+    "5c": "패치 대상 없음 (0개). 기존 프리팹 GUID 검증 통과. UI Show/Hide 호출 없어 기존 UI 프리팹 수정 불필요. PREFAB_PATCH_REPORT.md 생성"
   },
   "worktree_created": true,
   "worktree_path": "/tmp/sync_Minion_DarkArchon_1778500357"

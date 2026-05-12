@@ -1320,40 +1320,52 @@ private void StopConfuseEffect()
 ## 섹션 5 — Sync 체크리스트
 
 ### Phase A — 블로커 해소 (컴파일 에러 유발)
-- [ ] `DebuffType.cs` — `Confuse` enum 값 추가
-- [ ] `EEffectType.cs` — `VFX_Minion_Dark_Trap_Explo = 3013`, `VFX_Minion_Dark_Trap_Black = 3014` 추가
-- [ ] `DebuffController.cs` — `OnDebuffEnded` 이벤트 선언 추가
-- [ ] `DebuffController.cs` — `OnDebuffEnd()` 메서드에 `OnDebuffEnded?.Invoke(debuffType)` 추가
-- [ ] `DebuffController.cs` — `Cleanup()`에 `OnDebuffEnded = null` 추가
-- [ ] `DebuffController.cs` — `Confuse` 케이스 `ApplyDebuff` switch에 추가 (최소: 빈 메서드)
-- [ ] `DebuffController.cs` — `OnDebuffEnd` switch에 `Confuse` 케이스 추가
-- [ ] `DebuffController.cs` — `StartConfuseEffect()` / `StopConfuseEffect()` 메서드 구현
-- [ ] EffectManager 이펙트 데이터 테이블에 `3013(Explo)`, `3014(Black)` 항목 등록
+- [x] `DebuffType.cs` — `Confuse` enum 값 추가 ✅
+- [x] `EEffectType.cs` — `VFX_Minion_Dark_Trap_Explo = 3014`, `VFX_Minion_Dark_Trap_Black = 3015` 추가 ✅ ⚠️ 최초 sync 시 3013/3014로 잘못 입력되었다가 재sync에서 3014/3015로 수정
+- [x] `DebuffController.cs` — `OnDebuffEnded` 이벤트 선언 추가 ✅
+- [x] `DebuffController.cs` — `OnDebuffEnd()` 메서드에 `OnDebuffEnded?.Invoke(debuffType)` 추가 ✅
+- [x] `DebuffController.cs` — `Cleanup()`에 `OnDebuffEnded = null` 추가 ✅
+- [x] `DebuffController.cs` — `Confuse` 케이스 `ApplyDebuff` switch에 추가 ✅
+- [x] `DebuffController.cs` — `OnDebuffEnd` switch에 `Confuse` 케이스 추가 ✅
+- [x] `DebuffController.cs` — `StartConfuseEffect()` / `StopConfuseEffect()` 메서드 구현 ✅
+- [x] EffectManager 이펙트 데이터 테이블에 `137.asset(Explo, effectType=3014)`, `138.asset(Black, effectType=3015)` 등록 ✅
 
 ### Phase B — 기존 파일 수정
-- [ ] `MinionEnums.cs` — `DarkPriestTrap = 2503` 추가
-- [ ] `MinionSkillRegistry.cs` — `DarkPriestTrap` 팩토리 등록 추가
+- [x] `MinionEnums.cs` — `DarkPriestTrap = 2503` 추가 ✅
+- [x] `MinionSkillRegistry.cs` — `DarkPriestTrap` 팩토리 등록 추가 ✅
 
 ### Phase C — 신규 파일 추가
-- [ ] `MinionDarkConfigSO.cs` 복사 → `Assets/_Project/1_Scripts/SOs/SO/MinionDarkConfigSO.cs`
-- [ ] `Minion_DarkPriest_Controller.cs` 복사 → `Assets/_Project/1_Scripts/Core/Controllers/Minion/Minion_DarkPriest_Controller.cs`
-- [ ] `DarkPriestTrapSkill.cs` **변환 후** 추가 → `Assets/_Project/1_Scripts/Core/Controllers/Minion/Skills/Implementations/DarkPriestTrapSkill.cs`
-- [ ] `MinionDarkTrapComponent.cs` **변환 후** 추가 → `Assets/_Project/1_Scripts/Core/Components/MinionDarkTrapComponent.cs`
-- [ ] Unity 컴파일 확인 (에러 없음 검증)
+- [x] `MinionDarkConfigSO.cs` 복사 → `Assets/_Project/1_Scripts/SOs/SO/MinionDarkConfigSO.cs` ✅
+- [x] `Minion_DarkPriest_Controller.cs` 복사 → `Assets/_Project/1_Scripts/Core/Controllers/Minion/Minion_DarkPriest_Controller.cs` ✅
+- [x] `DarkPriestTrapSkill.cs` **변환 후** 추가 → `Assets/_Project/1_Scripts/Core/Controllers/Minion/Skills/Implementations/DarkPriestTrapSkill.cs` ✅
+- [x] `MinionDarkTrapComponent.cs` **변환 후** 추가 → `Assets/_Project/1_Scripts/Core/Components/MinionDarkTrapComponent.cs` ✅
+- [ ] Unity 컴파일 확인 (에러 없음 검증) — Unity 에디터에서 직접 확인 필요
 
 ### Phase D — 프리팹 작업
-- [ ] `Assets/Resources/Prefabs/Minion/Minion_DarkArchon.prefab` 추가 (GUID 신규 생성)
-- [ ] `Assets/Marine/Prefab/Minion/Minion_DarkArchon.prefab` 추가
-- [ ] `Assets/_Project/3_Prefabs/UI/Character/Minion_DarkArchon_UI.prefab` 추가
-- [ ] `MinionDarkTrapComponent` 프리팹에 `_detectionVisuals` Inspector 연결 확인
-- [ ] `Minion_DarkPriest_Controller` 프리팹에 `_darkConfig` SO 할당 확인
-- [ ] `MinionDarkConfigSO.cs`로 SO 에셋 생성 및 `TrapPrefab` 필드에 함정 프리팹 할당
+- [x] `Assets/Resources/Prefabs/Minion/Minion_DarkArchon.prefab` 추가 ✅ (Resources_moved 대신 Resources/ 배치)
+- [x] `Assets/Marine/Prefab/Minion/Minion_DarkArchon.prefab` 추가 ✅
+- [x] `Assets/_Project/3_Prefabs/UI/Character/Minion_DarkArchon_UI.prefab` 추가 ✅
+- [x] `Assets/Resources/EffectPrefabs/Minion/VFX_Minion_Dark_Trap_Explo.prefab` 추가 ✅
+- [x] `Assets/Resources/EffectPrefabs/Minion/VFX_Minion_Dark_Trap_Black.prefab` 추가 ✅
+- [x] `Assets/Marine/Prefab/Minion/VFX_Minion_Dark_Trap.prefab` 업데이트 (MinionDarkTrapComponent 추가) ✅
+- [x] `MinionDarkConfig.asset` SO 에셋 복사 → `Assets/_Project/11_SO/MinionDarkConfig.asset` ✅
+- [ ] Unity 에디터에서 Inspector 연결 확인 (TrapPrefab 필드, _darkConfig 필드)
 
-### Phase E — 검증
+### Phase E — 이미지 에셋 (재sync에서 추가 완료)
+- [x] `skill_25031~25036.png` → `Assets/Resources_moved/Sprites/Icon/Minion/Skill/` 복사 ✅
+- `Resources-Sprites.asset` Addressables 등록 불필요 — Addressables Importer가 자동 처리
+- [x] `icon_minion_10.png` → `Assets/Resources_moved/Sprites/Icon/Minion/` 복사 ✅
+- Addressables `icon_minion_10.png` 등록 불필요 — Addressables Importer가 자동 처리
+
+### Phase F — 데이터 수정 (재sync에서 추가 완료)
+- [x] `MinionManager.GetAllMinionData()` — `index` 오름차순 정렬 추가 ✅ (UI 표시 순서 보장)
+
+### Phase G — 검증
 - [ ] Play Mode에서 암흑 사제 Uncommon 등급 함정 설치 동작 확인
 - [ ] Mythic 등급: 혼란 디버프 종료 시 소형 함정 생성 확인
 - [ ] Epic 등급: 폭발 후 4방향 소형 함정 분열 확인
 - [ ] Uncommon + 사도(Templer) 보유 시 추가 함정 전이 동작 확인
+- [ ] MinionMainUI에서 DarkArchon이 마지막(10번째)에 표시되는지 확인
 
 ---
 
