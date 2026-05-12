@@ -1360,12 +1360,125 @@ private void StopConfuseEffect()
 ### Phase F — 데이터 수정 (재sync에서 추가 완료)
 - [x] `MinionManager.GetAllMinionData()` — `index` 오름차순 정렬 추가 ✅ (UI 표시 순서 보장)
 
+### Phase H — JSON/SO 이식 (파싱 전 로컬 테스트용)
+
+> 서버 밸런스 없이 로컬에서 바로 테스트하려면 이 Phase가 완료되어야 함.
+> **currencyType 주의**: `MinionData.json`의 `rankupCurrencyType`은 FROM(673) → WD(1166)으로 매핑.
+
+**SO 파일** (이미 완료):
+- [x] `MinionData/10.asset` ✅
+- [x] `MinionSkillData/25031~25036.asset` ✅
+- [x] `EffectData/137.asset` (effectType=3014), `138.asset` (effectType=3015) ✅
+- [x] `CurrencyData/1166.asset` (`MinionPiece_2503`) ✅
+
+**JSON 파일**:
+- [x] `MinionData.json` — DarkArchon (index=10, id=2503, rankupCurrencyType=**1166**) 추가 ✅
+- [x] `MinionSkillData.json` — 25031~25036 (6개 스킬) 추가 ✅
+- [x] `EffectData.json` — effectID 137 (Explo, effectType=3014), 138 (Black, effectType=3015) 추가 ✅
+
 ### Phase G — 검증
 - [ ] Play Mode에서 암흑 사제 Uncommon 등급 함정 설치 동작 확인
 - [ ] Mythic 등급: 혼란 디버프 종료 시 소형 함정 생성 확인
 - [ ] Epic 등급: 폭발 후 4방향 소형 함정 분열 확인
 - [ ] Uncommon + 사도(Templer) 보유 시 추가 함정 전이 동작 확인
 - [ ] MinionMainUI에서 DarkArchon이 마지막(10번째)에 표시되는지 확인
+
+---
+
+## 섹션 7 — 파싱 전 로컬 테스트용 JSON/SO 이식
+
+> 서버 밸런스 데이터가 없는 환경(로컬 테스트)에서도 DarkArchon이 정상 로드되려면 JSON 폴백 파일들이 완비되어야 한다.
+> SO 파일은 `Resources/ScriptableObjects/` 아래 직접 배치, JSON은 `Resources/JsonFiles/`에 수정.
+
+### 7-1. currencyType 매핑 (FROM → TO)
+
+| 항목 | FROM (temp-bunker/dev) | TO (WiggleDefender) | 비고 |
+|------|------------------------|----------------------|------|
+| `rankupCurrencyType` (MinionData) | 673 | **1166** | WD의 `CurrencyData/1166.asset` (`MinionPiece_2503`) |
+
+> FROM과 TO의 currencyType 체계가 다르므로 JSON 그대로 복사하면 안 됨. 반드시 WD 값(1166)으로 교체.
+
+### 7-2. SO 파일 현황 (복사 완료)
+
+| 파일 | 경로 | 상태 |
+|------|------|------|
+| `MinionDataSO` (DarkArchon) | `Resources/ScriptableObjects/MinionData/10.asset` | ✅ |
+| `MinionSkillDataSO` (기본 공격) | `Resources/ScriptableObjects/MinionSkillData/25031.asset` | ✅ |
+| `MinionSkillDataSO` (Uncommon~Mythic) | `Resources/ScriptableObjects/MinionSkillData/25032~25036.asset` | ✅ |
+| `EffectDataSO` (함정 폭발) | `Resources/ScriptableObjects/EffectData/137.asset` | ✅ |
+| `EffectDataSO` (함정 전이) | `Resources/ScriptableObjects/EffectData/138.asset` | ✅ |
+| `CurrencyDataSO` (조각) | `Resources/ScriptableObjects/CurrencyData/1166.asset` | ✅ |
+
+### 7-3. JSON 파일 수정 항목
+
+#### MinionData.json
+
+- **파일**: `Assets/Resources/JsonFiles/MinionData.json`
+- **수정**: 배열 마지막에 DarkArchon 항목 추가
+- **주의**: `rankupCurrencyType`을 FROM 값(673) 대신 WD 값(1166)으로 입력
+
+```json
+{
+  "index": 10,
+  "id": 2503,
+  "name": "minion_name_2503",
+  "raceType": 5,
+  "minionRarity": 2,
+  "moveType": 0,
+  "attackType": 0,
+  "skillType": 2503,
+  "range": 8.0,
+  "rankupCurrencyType": 1166,
+  "prefabPath": "Prefabs/Minion/Minion_DarkArchon",
+  "iconPath": "Sprites/Icon/Minion/icon_minion_10"
+}
+```
+
+#### MinionSkillData.json
+
+- **파일**: `Assets/Resources/JsonFiles/MinionSkillData.json`
+- **수정**: 배열 마지막에 25031~25036 항목 6개 추가
+- **currencyType 없음** — 이 파일은 매핑 불필요
+
+```json
+{"id":25031,"skillType":2503,"isBaseAttack":true,"iconPath":"Sprites/Icon/Minion/Skill/skill_25031","skillName":"skill_name_25031","skllDesc":"skill_desc_25031","skillRarity":0,"arg1":15.0,"arg2":10.0,"arg3":4000.0,"arg4":1.0,"arg5":1.0},
+{"id":25032,"skillType":2503,"isBaseAttack":false,"iconPath":"Sprites/Icon/Minion/Skill/skill_25032","skillName":"skill_name_25032","skllDesc":"skill_desc_25032","skillRarity":0,"arg1":25.0,"arg2":2.0},
+{"id":25033,"skillType":2503,"isBaseAttack":false,"iconPath":"Sprites/Icon/Minion/Skill/skill_25033","skillName":"skill_name_25033","skllDesc":"skill_desc_25033","skillRarity":1,"arg1":50.0},
+{"id":25034,"skillType":2503,"isBaseAttack":false,"iconPath":"Sprites/Icon/Minion/Skill/skill_25034","skillName":"skill_name_25034","skllDesc":"skill_desc_25034","skillRarity":2,"arg1":2.0},
+{"id":25035,"skillType":2503,"isBaseAttack":false,"iconPath":"Sprites/Icon/Minion/Skill/skill_25035","skillName":"skill_name_25035","skllDesc":"skill_desc_25035","skillRarity":3,"arg1":15.0,"arg2":100.0},
+{"id":25036,"skillType":2503,"isBaseAttack":false,"iconPath":"Sprites/Icon/Minion/Skill/skill_25036","skillName":"skill_name_25036","skllDesc":"skill_desc_25036","skillRarity":4}
+```
+
+#### EffectData.json
+
+- **파일**: `Assets/Resources/JsonFiles/EffectData.json`
+- **수정**: 배열 마지막에 effectID 137/138 항목 추가
+- **currencyType 없음** — 이 파일은 매핑 불필요
+
+```json
+{
+  "effectID": 137,
+  "optimizationSetting": true,
+  "effectName": "암흑사제 함정 폭발",
+  "effectType": 3014,
+  "prefabPath": "EffectPrefabs/Minion/VFX_Minion_Dark_Trap_Explo",
+  "preDelay": 0.0,
+  "scale": {"x": 1.0, "y": 1.0, "z": 1.0},
+  "useRandomScale": false,
+  "followParent": false
+},
+{
+  "effectID": 138,
+  "optimizationSetting": false,
+  "effectName": "암흑사제 함정 전이",
+  "effectType": 3015,
+  "prefabPath": "EffectPrefabs/Minion/VFX_Minion_Dark_Trap_Black",
+  "preDelay": 0.0,
+  "scale": {"x": 1.0, "y": 1.0, "z": 1.0},
+  "useRandomScale": false,
+  "followParent": false
+}
+```
 
 ---
 

@@ -106,3 +106,18 @@ EffectData SO의 `effectType` 필드와 `EEffectType` enum 값 매핑 확인이 
 | 스킬 아이콘 6개 복사 | `Assets/Resources_moved/Sprites/Icon/Minion/Skill/skill_25031~25036.png` |
 | EEffectType enum 수정 | `Assets/_Project/1_Scripts/Core/Enums/EEffectType.cs` |
 | GetAllMinionData 정렬 추가 | `Assets/_Project/1_Scripts/Core/Managers/MinionManager.cs` |
+| MinionSkillData.json 스킬 6개 추가 | `Assets/Resources/JsonFiles/MinionSkillData.json` |
+
+## JSON/SO 이식 완료 (2026-05-12, Phase H)
+
+> 서버 밸런스 없이 로컬 테스트 가능하도록 JSON 폴백 파일 완비.
+
+| 파일 | 수정 내용 |
+|------|---------|
+| `MinionData.json` | DarkArchon 항목 추가 (`rankupCurrencyType`: FROM=673 → **WD=1166** 매핑) |
+| `EffectData.json` | effectID 137 (`VFX_Minion_Dark_Trap_Explo`, effectType=3014), 138 (`VFX_Minion_Dark_Trap_Black`, effectType=3015) 추가 |
+| `MinionSkillData.json` | 25031~25036 (6개) — 이전 재sync에서 완료 |
+
+**currencyType 매핑 확인**: `rankupCurrencyType` FROM(673) ≠ WD(1166).
+FROM JSON을 그대로 복사하면 런타임에 미니언 조각 재화가 잘못 참조된다.
+WD의 `CurrencyData/1166.asset` (`MinionPiece_2503`)이 정답.
