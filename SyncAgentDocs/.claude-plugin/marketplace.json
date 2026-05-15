@@ -1,0 +1,15 @@
+{
+  "name": "sync-agent-marketplace",
+  "owner": {
+    "name": "juwon.cha",
+    "email": "juwon.cha@teamsparta.co"
+  },
+  "description": "Unity 프로젝트 간 이식 워크플로우 플러그인 마켓플레이스",
+  "plugins": [
+    {
+      "name": "sync-agent",
+      "source": "./",
+      "description": "Unity 프로젝트 간 시스템 sync 워크플로우 — /sync (전체 진행) + /sync-init (프로젝트별 가이드 자동 생성)"
+    }
+  ]
+}

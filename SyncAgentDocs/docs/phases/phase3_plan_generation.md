@@ -6,9 +6,31 @@
 - Phase 2 결과: 파일별 분석, 패턴 표, 의존성 확인
 
 ## 참조 문서
-아래 두 문서를 Read로 읽는다:
-- `{to}/.claude/docs/WD_SYNC_GUIDE.md`
-- `{to}/.claude/docs/SYSTEM_ANALYSIS_TEMPLATE.md`
+아래 두 문서를 Read로 읽는다. **프로젝트별 가이드는 다음 순서로 탐색**:
+
+```bash
+# 1순위: 상태 파일에 저장된 가이드 경로
+guide_path=$(python3 -c "import json,os; print(json.load(open(os.path.expanduser('~/Documents/obsidian_vault/Sync' if os.path.isdir(os.path.expanduser('~/Documents/obsidian_vault')) else '~/Downloads/Sync')+'/'+os.path.basename('{to}')+'/.sync_state.json')).get('sync_guide_path',''))" 2>/dev/null)
+
+# 2순위: TO 프로젝트 .claude/docs 하위 *_SYNC_GUIDE.md (glob)
+[ -z "$guide_path" ] && guide_path=$(ls "{to}"/.claude/docs/*_SYNC_GUIDE.md 2>/dev/null | head -1)
+
+# 3순위: 플러그인 번들 docs (사전 정의된 가이드)
+[ -z "$guide_path" ] && guide_path=$(ls "${CLAUDE_PLUGIN_ROOT}"/docs/*_SYNC_GUIDE.md 2>/dev/null | head -1)
+
+# 4순위: 글로벌 obsidian
+[ -z "$guide_path" ] && guide_path="$HOME/Documents/obsidian_vault/SyncAgentDocs/docs/WD_SYNC_GUIDE.md"
+
+# 5순위: 폴백
+[ -z "$guide_path" ] || [ ! -f "$guide_path" ] && guide_path="$HOME/Downloads/SyncAgentDocs/docs/WD_SYNC_GUIDE.md"
+
+echo "SYNC_GUIDE: $guide_path"
+```
+
+- `$guide_path` (위에서 결정된 sync 가이드)
+- `${CLAUDE_PLUGIN_ROOT}/docs/SYSTEM_ANALYSIS_TEMPLATE.md` (없으면 위 동일 폴백 순서)
+
+> 사전에 `/sync-init`을 실행한 프로젝트라면 1순위에서 자동 매칭된다. 신규 환경이면 4순위(글로벌)로 떨어진다.
 
 ## 작업
 

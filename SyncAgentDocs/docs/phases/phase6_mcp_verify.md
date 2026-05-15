@@ -8,6 +8,141 @@
 
 ---
 
+## Step 0. 흔히 끊기는 지점 사전 체크리스트 (코드 sync 결선 검증)
+
+> **목적**: Phase 4 코드 sync 완료 후, Phase 5(프리팹) 진입 전에 코드 레벨에서 흔히 발생하는 8가지 결선 누락 패턴을 grep으로 검사한다.
+> **시점**: 컴파일 통과 직후, mcp-unity 검증 전.
+
+각 체크포인트마다 grep 결과를 확인하고 결과를 표로 정리한다.
+
+### 0-1. StartGame/EndGame류 진입점 메서드 호출자 0건
+
+sync된 매니저의 핵심 진입점 메서드를 호출하는 곳이 TO에 1건 이상 있는지 확인.
+
+```bash
+# sync된 매니저의 public 진입점 메서드 추출
+grep -nE "public.*(Start|End|Begin|Open|Enter)[A-Z]" "{to}/Assets/_Project/1_Scripts/Core/Managers/{System}Manager.cs"
+
+# 각 메서드에 대해 호출자 전수조사
+grep -rn "\.{진입점메서드명}(" "{to}/Assets/_Project/1_Scripts" --include="*.cs"
+```
+
+| 메서드 | TO 호출자 수 | FROM 호출자 수 | 판정 |
+|--------|--------------|----------------|------|
+| `Start{System}Game()` | 0 | 2 | ⚠️ 호출자 미이식 |
+
+호출자 0건이면 → Phase 2-E 결과 재확인 → 누락된 외부 호출자를 섹션 4에 추가하지 않았는지 점검.
+
+### 0-2. EventManager.Subscribe 등록 누락
+
+발행은 있는데 구독자 0건이면 메시지가 사라진다.
+
+```bash
+# sync된 GameEventType 항목별 publisher / subscriber 카운트
+for evt in GameEventType.FooChanged GameEventType.FooClaimed; do
+  pub=$(grep -rn "EventManager.Dispatch<.*>($evt" "{to}/Assets/_Project/1_Scripts" --include="*.cs" | wc -l)
+  sub=$(grep -rn "EventManager.Subscribe<.*>($evt" "{to}/Assets/_Project/1_Scripts" --include="*.cs" | wc -l)
+  echo "$evt: publisher=$pub subscriber=$sub"
+done
+```
+
+| 이벤트 | publisher | subscriber | 판정 |
+|--------|-----------|------------|------|
+| `GameEventType.FooChanged` | 2 | 0 | ⚠️ 구독자 미이식 |
+
+### 0-3. EventManager.Unsubscribe 균형 (재진입 시 중복 구독 / 메모리 누수)
+
+```bash
+# Subscribe / Unsubscribe 짝 카운트
+for f in {sync된 파일 목록}; do
+  sub=$(grep -c "EventManager.Subscribe" "$f")
+  unsub=$(grep -c "EventManager.Unsubscribe" "$f")
+  if [ "$sub" != "$unsub" ]; then
+    echo "⚠️ $f: Subscribe=$sub Unsubscribe=$unsub (불균형)"
+  fi
+done
+```
+
+`Cleanup()`에서 모든 Subscribe가 1:1로 Unsubscribe되는지 확인. 불균형이면 재진입 시 중복 구독·이벤트 핸들러 누수.
+
+### 0-4. Managers.cs ManagerDefinition 등록 누락
+
+```bash
+grep -n "ManagerDefinition.*{System}Manager" "{to}/Assets/_Project/1_Scripts/Core/Managers/Managers.cs"
+```
+
+결과 0건이면 → `GetManager<{System}Manager>()`가 런타임에 null 반환. WD_SYNC_GUIDE 섹션 3.3 절차 미이행.
+
+### 0-5. enum 값 미일치 — SO/JSON 데이터와 enum 정의 불일치
+
+DataSheet SO나 JSON에 들어있는 enum 값이 TO 신규 enum 값과 어긋날 수 있다.
+
+```bash
+# sync된 enum의 모든 값 추출
+grep -A 20 "enum E{System}Type" "{to}/Assets/_Project/1_Scripts/Core/Data/{System}Types.cs"
+
+# DataSheet SO에서 해당 enum 사용 위치 확인 (Editor 코드 위주)
+grep -rn "E{System}Type\." "{to}/Assets/_Project/1_Scripts" --include="*.cs"
+```
+
+DataSheet 데이터의 string 값과 enum 정의가 일치하는지 확인. 불일치 시 런타임 파싱 실패(예외).
+
+### 0-6. base.Method 호출 누락 (override 시 base 처리 차단)
+
+override 메서드에서 `base.Method()`를 빼먹으면 데미지 텍스트, 통계 등 base의 핵심 처리가 차단된다.
+
+```bash
+# sync된 파일에서 override 메서드 추출 + base 호출 여부
+grep -nE "override\s+\w+\s+\w+\(" "{to}/Assets/_Project/1_Scripts/.../{File}.cs" | while read line; do
+  echo "$line"
+done
+# 각 override 본문에 base.XX(...) 호출이 있는지 수동 확인
+```
+
+특히 `OnEnable / OnDisable / Initialize / Cleanup / TakeDamage` 류 override는 base 호출이 거의 항상 필요.
+
+### 0-7. TakeDamage류 다중 시그니처 부분 오버라이드 (규칙 16 위반)
+
+```bash
+# TO 베이스 클래스의 TakeDamage 시그니처 전수 추출
+grep -nE "(public|protected).*virtual.*TakeDamage|public.*abstract.*TakeDamage" \
+  "{to}/Assets/_Project/1_Scripts/Core/Units/UnitBase.cs"
+
+# sync한 파생 클래스에서 override한 시그니처 수
+grep -cE "override.*TakeDamage" "{to}/Assets/_Project/1_Scripts/.../{DerivedUnit}.cs"
+```
+
+베이스에 4-5개 시그니처가 있는데 파생에서 1-2개만 override했으면 → 나머지 시그니처로 데미지가 들어올 때 base 호출되어 의도 깨짐. WD_SYNC_GUIDE 규칙 16 참조.
+
+### 0-8. SaveData enum 항목 추가 누락 (3곳 switch case)
+
+WD_SYNC_GUIDE 섹션 3.2의 SaveDataManager 3곳 switch에 신규 ESaveDataType이 모두 추가되었는지 확인:
+
+```bash
+grep -n "ESaveDataType\.{System}\|FirebaseKeys\.{SYSTEM}" \
+  "{to}/Assets/_Project/1_Scripts/Core/Managers/SaveDataManager.cs"
+# 최소 3개 항목(FirebaseKey→enum / Deserialize / enum→FirebaseKey)이 모두 나와야 한다
+```
+
+3건 미만이면 → 로드 또는 저장 중 한쪽이 작동하지 않는다.
+
+### Step 0 종합 판정
+
+| 체크포인트 | 결과 |
+|----------|------|
+| 0-1 진입점 호출자 | ✅ / ⚠️ |
+| 0-2 Subscribe 결선 | ✅ / ⚠️ |
+| 0-3 Unsubscribe 균형 | ✅ / ⚠️ |
+| 0-4 Managers.cs 등록 | ✅ / ⚠️ |
+| 0-5 enum 값 일치 | ✅ / ⚠️ |
+| 0-6 base.Method 호출 | ✅ / ⚠️ |
+| 0-7 다중 시그니처 오버라이드 | ✅ / ⚠️ |
+| 0-8 SaveData 3곳 switch | ✅ / ⚠️ |
+
+⚠️ 항목이 있으면 Step 1 진입 전에 수정한다. 모두 ✅이면 Step 1로 이동.
+
+---
+
 ## Step 1. mcp-unity 연결 확인
 
 `mcp__mcp-unity__get_console_logs` 도구를 호출한다.
@@ -188,6 +323,7 @@ done
 ```
 ## Phase 6 결과 ({검증 방식: mcp-unity | 파일 레벨 폴백})
 
+- Step 0 사전 체크리스트: 8/8 ✅ / N건 ⚠️ ({⚠️ 항목 요약})
 - 검증 프리팹: N개
 - 🔴 수정 필요: N건 → {수정 완료 N건 / 수동 확인 필요 N건}
 - ✅ 이상 없음: N개

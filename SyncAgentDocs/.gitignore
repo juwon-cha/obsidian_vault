@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# 사용자별 sync 상태 (다른 기기에서 공유 안 됨)
+.sync_state.json
+
+# 실제 sync 산출물 (개별 시스템별 분석 문서)
+# 이건 사용자별 obsidian vault에 따로 저장되지만, 혹시 모르니까 제외
+Sync/
+
+# 프로젝트별 sync 가이드는 각자 /sync-init으로 생성하므로 공유 안 함
+# (템플릿 _SYNC_GUIDE.template.md만 공유)
+docs/*_SYNC_GUIDE.md
+!docs/_SYNC_GUIDE.template.md
+
+# 에디터 임시 파일
+*.swp
+*~
+.idea/
+.vscode/

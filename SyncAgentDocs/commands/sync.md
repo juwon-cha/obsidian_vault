@@ -514,10 +514,12 @@ print('권한 추가 완료:', to_add)
 1. 해당 페이즈 문서를 Read 도구로 읽는다. 아래 우선순위로 경로를 탐색한다:
    ```
    1순위 (프로젝트 커스텀): {TO_PATH}/.claude/docs/phases/phase{N}_{name}.md
-   2순위 (글로벌):          ~/Documents/obsidian_vault/SyncAgentDocs/docs/phases/phase{N}_{name}.md
-   3순위 (폴백):            ~/Downloads/SyncAgentDocs/docs/phases/phase{N}_{name}.md
+   2순위 (플러그인 번들):   ${CLAUDE_PLUGIN_ROOT}/docs/phases/phase{N}_{name}.md
+   3순위 (글로벌 obsidian): ~/Documents/obsidian_vault/SyncAgentDocs/docs/phases/phase{N}_{name}.md
+   4순위 (폴백):            ~/Downloads/SyncAgentDocs/docs/phases/phase{N}_{name}.md
    ```
    파일이 존재하는 첫 번째 경로를 사용한다.
+   > `${CLAUDE_PLUGIN_ROOT}`는 Claude Code가 플러그인 설치 경로로 자동 expand하는 변수. 플러그인으로 설치된 경우 2순위에서 항상 찾을 수 있다.
 
 2. **Agent 도구로 실행한다** (서브에이전트가 독립 컨텍스트에서 파일 읽기/쓰기 수행):
    ```

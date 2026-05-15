@@ -45,7 +45,7 @@ grep -n "ServiceAccessor\|Inject\|MessageBroker\|using Geuneda\|using UniRx\|Bas
 
 > **sync 유형 기준** (상세: `WD_SYNC_GUIDE.md` 섹션 2 Step 3a)
 > - **DIRECT**: FROM 전용 패턴 없음, 의존성 전부 TO 존재 → 그대로 복사
-> - **ADAPTED**: 규칙 1~15 변환만 필요, 의존성 전부 TO 존재 → 규칙 적용 후 복사
+> - **ADAPTED**: 규칙 1~16 변환만 필요, 의존성 전부 TO 존재 → 규칙 적용 후 복사
 > - **PARTIAL**: 일부 의존성이 TO에 없음 → 대체/추가/스텁 처리 후 아래 표에 기록
 > - **BLOCKED**: 선행 sync 파일 완료 후 진행
 
@@ -109,6 +109,7 @@ grep -n "ServiceAccessor\|Inject\|MessageBroker\|using Geuneda\|using UniRx\|Bas
 - [ ] `SavePlayerDataAsync()` → `SaveDataAsync(ESaveDataType.X, data)` (규칙 13)
 - [ ] Partial class 두 번째 파일에 `: BaseManager` 중복 선언 없는지 확인 (규칙 14)
 - [ ] partial class가 있는 경우: 동일 클래스 다른 partial 파일의 private 메서드를 호출하면 WD에도 동일 메서드가 존재하는지 확인 (규칙 15)
+- [ ] 시그니처 축 변경 확인 — enum 파라미터(EUnitRaceType→EElementType 등) 매핑 / 동명 메서드 다중 오버라이드 전수 처리 (규칙 16)
 - [ ] *(추가 발견 패턴 기록)*
 
 **필드**:
@@ -225,6 +226,38 @@ grep -n "메서드명" Assets/_Project/1_Scripts/Core/Managers/FooManager.cs
 | `ChipSortComparison` | ⚠️ 없음 (TO는 SortChipInventory 사용) | 인라인 LINQ 정렬로 대체 |
 | *(추가 항목)* | | |
 
+### 3.5 호출 그래프 역방향 추적 (Phase 2-E 결과)
+
+*(sync 대상 파일의 진입점 메서드/이벤트 발행을 FROM에서 누가 호출하는지 → TO에도 동일 호출자가 있는지 확인. publisher/subscriber 0건 함정 방지.)*
+
+| 진입점 (메서드 또는 GameEventType) | FROM 호출자 수 | TO 동일 호출자 존재 | 처리 |
+|---------|-------------|------------------|------|
+| `FooManager.StartFooGame()` | 3 (BarManager, BazUI, QuxFlow) | 2 (BarManager 미호출) | 섹션 4에 BarManager 호출 추가 |
+| `GameEventType.FooEvent` (publisher) | 2 | 0 | 외부 호출자 TO 신설 필요 |
+| `GameEventType.FooEvent` (subscriber) | 1 | 0 | sync 대상 포함 여부 확인 |
+| *(추가 항목)* | | | |
+
+> **메시지 결선 검증 결과**: publisher N개 / subscriber N개 — 양쪽이 모두 sync 대상에 포함되는지 확인. 한쪽만 sync 대상이면 섹션 0.1 PARTIAL에 기록한다.
+
+### 3.6 시그니처 축 변경 매핑 (해당 시스템에 enum 축 변경이 있을 때만)
+
+*(WD_SYNC_GUIDE 규칙 16 참조. enum 파라미터 축이 FROM/TO 사이에 바뀌는 경우에만 작성.)*
+
+```
+## TakeDamage 시그니처 축 변경 매핑
+FROM EUnitRaceType → TO EElementType
+```
+
+| FROM enum 값 | TO enum 값 | 매핑 근거 |
+|-------------|-----------|----------|
+| `EUnitRaceType.Human` | `EElementType.Physical` | 1:1 매핑 |
+| `EUnitRaceType.Beast` | `EElementType.Nature` | 1:1 매핑 |
+| `EUnitRaceType.Mech` | (없음) | ⚠️ 매핑 누락 — 처리 결정 필요 |
+
+**다중 오버라이드 처리 확인:**
+- 베이스 클래스 시그니처 수: N개
+- 파생 클래스 override 카운트: N개 (일치/불일치)
+
 ---
 
 ## 4. TO에서 수정이 필요한 기존 파일
@@ -291,7 +324,7 @@ NotifyFooStateChanged();   // ← 추가 필요 (TO에 없음)
 
 ### 신규 파일 생성
 
-- [ ] `FooManager.cs` — FROM 변환 규칙 적용 (가이드 규칙 1~15)
+- [ ] `FooManager.cs` — FROM 변환 규칙 적용 (가이드 규칙 1~16)
 - [ ] `FooManager.Preset.cs` — partial class 신규 생성 (규칙 14: 두 번째 파일에 `: BaseManager` 없음)
 - [ ] *(추가 파일)*
 
