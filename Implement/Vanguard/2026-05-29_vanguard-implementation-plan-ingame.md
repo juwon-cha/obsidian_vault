@@ -230,19 +230,22 @@ POST /vanguard/match/result
 
 ## 9. 재사용 vs 신규
 
-| 기능 | 처리 |
-|---|---|
-| 적 스폰/이동/HP | ✅ `EnemyManager` + `EnemyMovementComponent` 재사용 (이미 transform 이동) |
-| 요새 HP/피격/면역 | ✅ `BaseController` / `BaseSystemManager` 재사용 |
-| 카드 | ✅ `CardManager` 재사용 + Vanguard 풀 분기 |
-| 칩 효과 | ✅ `ChipManager` / `ChipEffectManager` 재사용 + 신규 칩 6종 데이터 추가 |
-| 데미지 계산 | ✅ `DamageCalculationManager` 재사용 |
-| 웨이브 진행 | ✅ `StageManager.ProcessWavesAsync` 재사용 + 분기 (Ark 패턴) |
-| **전투 플로우 제어** | 🆕 `VanguardStagePlayService` |
-| **상대 고스트 재생** | 🆕 `VanguardGhostPlayer` (전투 로직 없음) |
-| **녹화** | 🆕 `VanguardReplayRecorder` |
-| **시드 RNG** | 🆕 매치 전용 `System.Random` |
-| **스플릿 카메라(v2)** | 🆕 `cullingMask` 레이어 분리 |
+| 기능 | 처리 | 대응 RaceTower |
+|---|---|---|
+| 적 스폰/이동/HP | ✅ `EnemyManager` + `EnemyMovementComponent` 재사용 (이미 transform 이동) | 동일 |
+| 요새 HP/피격/면역 | ✅ `BaseController` / `BaseSystemManager` 재사용 | 동일 |
+| 카드 | ✅ `CardManager` 재사용 + Vanguard 풀 분기 | 동일 |
+| 칩 효과 | ✅ `ChipManager` / `ChipEffectManager` 재사용 + 신규 칩 6종 데이터 추가 | - |
+| 데미지 계산 | ✅ `DamageCalculationManager` 재사용 | 동일 |
+| 웨이브 진행 | ✅ `StageManager.ProcessWavesAsync` 재사용 + 분기 (Ark 패턴) | 동일 |
+| 스테이지 데이터 변환 | 🆕 `VanguardStagePlayService.BuildStageData()` (RaceTower와 동일 책임) | `RaceTowerStagePlayService` |
+| **전투 플로우 제어** | 🆕 `VanguardStagePlayService` (`StageServices/` 폴더, StageManager가 인스턴스화) | `RaceTowerStagePlayService` |
+| **상대 고스트 재생** | 🆕 `VanguardGhostPlayer` (전투 로직 없음) — PvP 고유, StagePlayService 내부 | (없음) |
+| **녹화** | 🆕 `VanguardReplayRecorder` — PvP 고유, StagePlayService 내부 | (없음) |
+| **시드 RNG** | 🆕 매치 전용 `System.Random` | - |
+| **스플릿 카메라(v2)** | 🆕 `cullingMask` 레이어 분리 | - |
+
+> `VanguardStagePlayService`는 RaceTower처럼 "데이터 변환 + 전투 플로우 제어" 책임을 가진다. RaceTower와 다른 점은 고스트 재생/녹화 2개를 내부에 추가로 들고 있다는 것뿐. 위치(`StageServices/`)·인스턴스화 방식(StageManager 내부 `_vanguardStagePlayService`)은 동일.
 
 ---
 
@@ -290,20 +293,66 @@ public class VanguardStagePlayService
 ```
 
 ```csharp
-// VanguardManager.cs (아웃게임이지만 전투 진입 트리거 담당)
+// VanguardManager.cs — RaceTowerManager 조합 패턴 답습
 public class VanguardManager : BaseManager
 {
-    private VanguardService _service;
+    // 모드 전용 세이브 데이터 (Manager가 보유, 서브서비스와 공유)
+    private VanguardSaveData _saveData = new VanguardSaveData();
 
-    public VanguardLoadout MyLoadout { get; private set; }
-    public int MyScore { get; private set; }
-    public EVanguardTier MyTier { get; private set; }
+    // 주입용 매니저 캐시
+    private ServerTimeManager _serverTimeManager;
+    private SaveDataManager   _saveDataManager;
+    private CurrencyManager   _currencyManager;
 
+    // 서브서비스 (POCO) — RaceTowerManager.StageService/ShopService... 패턴
+    public VanguardSeasonService  SeasonService  { get; private set; }
+    public VanguardLoadoutService LoadoutService { get; private set; }
+    public VanguardChipService    ChipService    { get; private set; }
+    public VanguardShopService    ShopService    { get; private set; }
+    public VanguardRankService    RankService    { get; private set; }
+
+    public override async UniTask InitializeAsync()
+    {
+        await base.InitializeAsync();
+
+        _serverTimeManager = GetManager<ServerTimeManager>();
+        _saveDataManager   = GetManager<SaveDataManager>();
+        _currencyManager   = GetManager<CurrencyManager>();
+
+        // new + Initialize(의존성 주입) — RaceTowerManager와 동일
+        SeasonService = new VanguardSeasonService();
+        SeasonService.Initialize(_saveData, _serverTimeManager);
+
+        LoadoutService = new VanguardLoadoutService();
+        LoadoutService.Initialize(_saveData, _saveDataManager);
+
+        ChipService = new VanguardChipService();
+        ChipService.Initialize(_saveData, _saveDataManager); // 영구칩과 분리된 시즌 인벤토리
+
+        ShopService = new VanguardShopService();
+        ShopService.Initialize(_saveData, _currencyManager, _saveDataManager, _serverTimeManager);
+
+        RankService = new VanguardRankService();
+        RankService.Initialize(_saveData);
+    }
+
+    public override void Cleanup()
+    {
+        SeasonService = null;
+        LoadoutService = null;
+        ChipService = null;
+        ShopService = null;
+        RankService = null;
+        base.Cleanup();
+    }
+
+    // 전투 진입 트리거 — 서버 매칭은 VanguardServerService 경유
     public async UniTask<VanguardMatchData> FindMatchAsync(EVanguardMode mode)
     {
+        var service = GetManager<ServerManager>().VanguardServerService;
         var popup = ServerLoadingPopupUI.Show(
             LocalizationManager.GetLocalizedText("vanguard_matching"));
-        try { return await _service.RequestMatchAsync(mode, MyScore, MyTier); }
+        try { return await service.RequestMatchAsync(mode, RankService.Score, RankService.Tier); }
         finally { ServerLoadingPopupUI.Hide(); }
     }
 }

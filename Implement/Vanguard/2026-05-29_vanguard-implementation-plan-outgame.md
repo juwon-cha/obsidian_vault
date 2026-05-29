@@ -260,13 +260,46 @@ finally { ServerLoadingPopupUI.Hide(); }
 
 ---
 
-## 12. 아웃게임 신규 클래스
+## 12. 아웃게임 신규 클래스 (RaceTower 패턴)
 
-| 클래스 | 역할 |
-|---|---|
-| `VanguardManager : BaseManager` | 재화/로드아웃/시즌/랭크/요새업글/클론 상태 오케스트레이션 |
-| `VanguardService : BaseServerService` | 위 11장 API 전부 |
-| `VanguardLoadoutSnapshot` (struct/DTO) | 9터렛 선택 + 칩 + 강화레벨 직렬화 (인게임 공유) |
-| `EVanguardTier`, `EVanguardMode` (enum) | 티어/모드 구분 |
+RaceTowerManager가 서브서비스를 조합하는 구조를 그대로 차용한다.
 
-**Managers.cs 등록**: 초기화 순서 확인 필요 (CardManager/ChipManager/CurrencyManager 이후).
+### 오케스트레이터 + 세이브
+
+| 클래스 | 역할 | 대응 RaceTower |
+|---|---|---|
+| `VanguardManager : BaseManager` | 서브서비스 조합 루트. 세이브/시즌/선택상태 보유 | `RaceTowerManager` |
+| `VanguardSaveData` | 모드 전용 세이브 데이터 객체 (Manager가 보유) | `RaceTowerSaveData` |
+
+### 서브서비스 (POCO — BaseManager 아님, `new` + `Initialize(주입)`)
+
+| 클래스 | 역할 | 대응 RaceTower |
+|---|---|---|
+| `VanguardSeasonService` | 주간 시즌 오픈/리셋 판정 | `RaceTowerWeeklyOpenService` |
+| `VanguardLoadoutService` | 9터렛 로드아웃 + 요새 업그레이드 상태 | `RaceTowerStageService` |
+| `VanguardChipService` | Vanguard 칩 인벤토리 (영구칩과 분리 + 시즌 리셋) | `RaceTowerCardService` |
+| `VanguardShopService` | 상자 확률/천장(50회) + 유료상품 | `RaceTowerShopService` |
+| `VanguardRankService` | 티어/포인트/리더보드 캐시 | `RaceTowerAchieveService` |
+
+> 각 서브서비스는 `Initialize(VanguardSaveData saveData, CurrencyManager, SaveDataManager, ServerTimeManager ...)` 형태로 의존성 주입받고, `LoadXXXAsync()`로 데이터 지연 로드(서버 우선 → 로컬 JSON 폴백). `VanguardManager`가 `public { get; private set; }`로 노출.
+
+### 서버 API + 공유 DTO
+
+| 클래스 | 역할 | 대응 RaceTower |
+|---|---|---|
+| `VanguardServerService : BaseServerService` | 위 11장 API 전부 (Server/ 폴더) | `RaceTowerServerService` |
+| `VanguardLoadoutSnapshot` (DTO) | 9터렛+칩+강화레벨 직렬화 (인게임 공유) | - |
+| `EVanguardTier` / `EVanguardMode` / `EVanguardChestType` (enum) | ✅ 이미 작성 가능한 토대 | - |
+
+### 차팅 데이터 (필요 시)
+
+| 클래스 | 역할 | 대응 RaceTower |
+|---|---|---|
+| `Vanguard*DataSO` + `Vanguard*DataParser` | 상자 확률/패스보상/티어 등 차팅 | `RaceTower*DataSO` + Parser |
+
+> DataSheet SO는 자동 생성이므로 직접 수정 금지. 커스텀 로직은 `Vanguard*DataParser.cs`로 분리 (CLAUDE.md).
+
+### 등록 위치 (기존 파일 수정)
+
+- **Managers.cs**: `VanguardManager` `ManagerDefinition` 추가. priority는 RaceTowerManager(341) 부근 "Lobby" 카테고리. CurrencyManager/CardManager/ChipManager 이후.
+- **ServerManager.cs**: `_vanguardServerService` 필드 + `new` + `InitializeAsync` + `Cleanup` 라인 추가 (RaceTowerServerService와 동일 위치 패턴).
