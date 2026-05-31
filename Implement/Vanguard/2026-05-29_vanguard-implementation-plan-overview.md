@@ -95,6 +95,48 @@ UI/RaceTower/                                ← UI 일체
 
 ---
 
+## 실제 코드 검증 결과 — 베이스 클래스 위치 (2026-05-31 코드 분석)
+
+아래는 본 계획이 참조하는 베이스 클래스를 실제 코드에서 확인한 결과다. 모든 경로는 `Assets/_Project/1_Scripts/` 기준. 상세 시그니처/편집 타깃은 아웃게임/인게임 문서의 "검증된 구현 레퍼런스" 섹션 참조.
+
+### 이미 추가된 토대 (M1 일부 완료 — 코드 확인)
+
+| 항목 | 위치 | 상태 |
+|---|---|---|
+| `GameModeType.Vanguard` | `Core/GameModes/GameModeType.cs:14` (RaceTower 다음, 마지막) | ✅ 존재 |
+| `ECurrencyType` 6종 | `Core/Enums/ECurrencyType.cs:782-787` (`VanguardStandardDS=1285` ~ `VanguardEmberMark=1290`) | ✅ 존재 (이름 일치) |
+| `EVanguardMode` | `Core/Enums/Vanguard/EVanguardMode.cs` (`None=0/Match=1/Duel=2`) | ✅ |
+| `EVanguardTier` | `Core/Enums/Vanguard/EVanguardTier.cs` | ✅ (실게임 티어제: **Bronze→Silver→Gold→Platinum→Diamond→Vanguard**. Bronze~Diamond 각 5디비전, Vanguard 단일 최상위(디비전 없음). 티어 내 내림차순 넘버링 1=최상위) |
+| `EVanguardChestType` | `Core/Enums/Vanguard/EVanguardChestType.cs` (`None=0/Standard=1/Special=2`) | ✅ |
+
+> ⚠️ `VanguardManager`, `VanguardServerService`, `VanguardSaveData`, `ESaveDataType.Vanguard`는 아직 미존재 → M1의 나머지.
+
+### 베이스 패턴 클래스 (복제 대상) — 확인된 실제 위치
+
+| 베이스 | 실제 파일 | 비고 |
+|---|---|---|
+| `RaceTowerManager : BaseManager` | `Core/Managers/RaceTower/RaceTowerManager.cs` | 조합 루트. Managers.cs:134 등록(prio 341, "Lobby") |
+| `RaceTowerSaveData` | **`Core/Managers/SaveDataTypes.cs:146`** (별도 파일 아님 — enum과 같은 파일) | `[Serializable]` POCO. `VanguardSaveData`도 여기에 추가 |
+| 서브서비스(POCO) 5종 | `Core/Managers/RaceTower/RaceTower*Service.cs` | `new` + `Initialize(주입)`, 데이터는 `LoadXxxAsync()` 지연로드 |
+| `RaceTowerServerService : BaseServerService` | `Core/Managers/Server/RaceTowerServerService.cs` | `RequestApiAsync<ServerResponse<T>>` |
+| `RaceTowerStagePlayService` | `Core/Managers/StageServices/RaceTowerStagePlayService.cs` | `BuildStageData` + 전투플로우 |
+| `BaseStagePlayService : IStagePlayService` | `Core/Managers/StageServices/BaseStagePlayService.cs` | **PunchKing이 이걸 상속** — Vanguard 권장 베이스 |
+| `ArkSeasonService` | `Core/Managers/ArkServices/ArkSeasonService.cs` | 시즌 리셋 템플릿 |
+| `ArkPatrolService` | `Core/Managers/ArkServices/ArkPatrolService.cs` | 순찰/충전 템플릿 |
+| `ArkGachaService` | `Core/Managers/ArkServices/ArkGachaService.cs` | ⚠️ **50회 천장 없음**(가중치 뽑기) — Vanguard 천장은 신규 (아웃게임 5-1 참조) |
+| `HordeRankingService` | `Core/Managers/HordeRankingService.cs` | tier×grade 보상 매트릭스 |
+| `BattlePassManager : BaseManager` | `Core/Managers/BattlePassManager.cs` | 공용 패스 백엔드(trackIndex 0/1/2) |
+
+### 본 계획의 가정 중 코드와 달랐던 부분 (수정 필요 — 하위 문서 반영)
+
+1. **상자 천장(50회)**: Ark 가챠에는 50회 천장이 **없다**(가중치 픽 방식). 따라서 Vanguard "50회마다 선택형 칩"은 **신규 카운터**로 구현. PvP라 서버 권위 필수. (아웃게임 5-1)
+2. **시즌 보상 중복수령 방지**: Horde는 **클라 영구 `rewardStatus` 플래그가 없다**. 서버가 `enter` 응답의 `prevSeasonSettlement` 유무 + `claimSeasonReward` atomic 리셋으로 처리. → Vanguard도 **클라 영구 플래그 만들지 말 것**. (아웃게임 8장)
+3. **CardManager API**: `GrantRandomCard`/`GetCardChoicesArray` **메서드명 미존재**. 실제는 `GeneratePunchKingCardChoices(int)` / `GetRandomArkCardFiltered(...)`. (인게임 5-2)
+4. **전투 per-frame 틱**: StagePlayService는 async 전용(매 프레임 Update 없음). 20/40/60/120s 페이즈 체크는 **MonoBehaviour `BaseManager.Update()`** 에 둬야 함(선례: `GameStatisticsManager.Update()` / `PunchKingDungeonManager.CheckEnrageCondition()`). (인게임 10장)
+5. **칩 #5/#6은 사실상 기존 효과 재활용**: `EChipEffectType.BunkerCriticalImmunity(204)` + `BaseController.CheckAndTriggerImmunity()` 가 칩 #5와 거의 동일. 칩 #6은 `CriticalMaxHealthDamage(403)` + `BaseEnemyController.ProcessCriticalMaxHealthDamage()` 재활용. (인게임 5-6/5-7)
+
+---
+
 ## 구현 우선순위 (마일스톤)
 
 ### 순서 원칙 — "토대 먼저, 최대 리스크를 조기에"
