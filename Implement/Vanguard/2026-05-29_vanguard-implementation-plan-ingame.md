@@ -25,17 +25,21 @@
 
 ---
 
-## 2. 공정성 / 시드 모델
+## 2. 공정성 / 시드 모델 (위키 기준 — 고정 공유 시나리오)
 
-| 모델 | 방식 | 채택 |
-|---|---|---|
-| A. 점수 기반 (느슨) | 각자 자기 시드로 플레이, 정규화 점수 비교. 고스트는 체감용 | ✅ v1 |
-| B. 동일 시드 (엄격) | 매치 시드 공유 + 클론 재시뮬 | 후순위 |
+**위키 규칙 — 카드 세트·적 구성은 모든 플레이어 동일**
+- 위키 원문: *라운드별 터렛 카드 세트 고정, 모든 플레이어 동일.* / *라운드당 일반 6 + 정예 2, 모든 플레이어 동일.*
+- 즉 카드 세트와 적 구성은 **무작위가 아니라 그 주차에 결정론적으로 고정·공유**된다.
 
-**시드 RNG 규칙 (중요)**
-- 매치 전용 `System.Random(matchSeed)` 인스턴스 사용.
-- `UnityEngine.Random` **절대 금지** — 전역 시드라 녹화/재생 불일치 유발.
-- 적 draw, 카드 draw 등 전투 내 모든 랜덤은 이 인스턴스 경유.
+**공정성 모델 — "고정 공유 시나리오 + 점수 비교"**
+- 모든 플레이어가 **동일한 카드 세트 + 동일한 적 구성**을 상대한다 → 시드 운 편차가 원천적으로 없음.
+- 각자 자기 시간에 같은 시나리오를 플레이하고, **점수**(생존시간/잔여HP/처치수)로 비교한다.
+- 상대(클론)는 같은 시나리오를 플레이한 녹화 고스트 → 직접 비교 가능 (시드 일치 문제 없음).
+- 이 모델은 기존 "A(느슨)/B(엄격)" 구분을 대체한다: **시나리오가 고정 공유이므로 A의 단순함 + B의 공정성을 동시에 확보.**
+
+**구현 방침 (위키 준수)**
+- 카드 후보 세트·적 구성은 **서버가 내려준 주차 고정 세트**를 그대로 사용. 클라이언트가 임의 draw하지 않는다.
+- `UnityEngine.Random` **절대 금지**. 세트 내에서 순서/위치 등 부수적 무작위가 필요하면 서버가 내려준 고정 시드로 `System.Random` 사용 (녹화/재생 일치 보장).
 
 ---
 
@@ -105,18 +109,28 @@ public class VanguardGhostPlayer
 
 ## 5. 위키 메커니즘 → 구현 매핑
 
-### 5-1. 공유 웨이브 (6 Regular + 2 Elite)
-- 기존 `StageManager`의 `WaveDataSO` + Ark 모드의 동적 웨이브 생성(`clonedWaveData`) 패턴 재사용.
-- 웨이브 구성을 `System.Random(matchSeed)`로 결정적 draw.
+### 5-1. 공유 웨이브 (6 Regular + 2 Elite — 전 플레이어 동일)
+- 위키 기준 적 구성은 **모든 플레이어 동일한 고정 세트**. 서버가 주차/라운드별 웨이브 구성을 내려준다.
+- 기존 `StageManager`의 `WaveDataSO` + Ark 모드의 동적 웨이브 생성(`clonedWaveData`) 패턴 재사용하되, **구성은 서버 제공 고정값**을 그대로 주입.
 
 ```csharp
-var rng = new System.Random(matchSeed);
-int regularId = regularPool[rng.Next(regularPool.Count)];
-int eliteId   = elitePool[rng.Next(elitePool.Count)];
+// 서버가 내려준 고정 웨이브 구성을 그대로 사용 (클라 임의 draw 금지)
+foreach (var round in serverWaveConfig.rounds)
+{
+    // round.regularIds (6), round.eliteIds (2) — 전 플레이어 동일
+}
 ```
 
-### 5-2. 라운드 시작 카드 1장
-- 기존 `CardManager` 큐/가중치 시스템 재사용. 라운드 시작 시 시드 RNG로 1장 강제 지급.
+**적 스탯 스케일링 (위키 신규 — 중요)**
+- 적 HP/공격은 **현재 티어에 따라 스케일링**된다 (티어 높을수록 강함).
+- 적이 **텔레포트할 때마다 HP·공격이 증가**한다.
+- → 인게임에서 적 스폰 시 `현재 티어` 기반 배율을 적 스탯에 적용해야 함. 텔레포트 스킬 보유 적은 텔레포트 시 스탯 증가 로직 추가.
+- `BaseEnemyController.FinalMaxHealth/FinalAttackDamage` 산출 시 Vanguard 티어 배율을 곱하는 분기 필요 (Ark의 `dynamicBalanceHpMultiplier` 패턴 참고).
+
+### 5-2. 라운드 시작 카드 (세트는 전 플레이어 공유)
+- ⚠️ 위키: **라운드별 터렛 카드 세트는 그 주차에 고정·전 플레이어 동일**. 무작위 풀이 아님.
+- 따라서 카드 후보 세트는 **서버가 내려준 주차 고정 세트**를 사용. 그 세트 내에서의 draw(어떤 1장)는 `matchSeed` 기반.
+- 기존 `CardManager` 큐/가중치 시스템 재사용하되, 풀을 Vanguard 고정 세트로 치환.
 - 뽑은 카드(라운드, cardId)를 `Recorder`에 기록 → 클론 재현 가능.
 
 ### 5-3. Adversity Boost (20/40/60초)
@@ -161,8 +175,9 @@ if (_elapsedTime >= 120f)
 ```
 - `BaseController.TakeDamage()` 기존 메서드 재사용.
 
-### 5-6. 요새 70% 이하 피해 면역 (칩 #5)
-- `BaseController`에 이미 `CheckAndTriggerImmunity()` / 위급 면역 칩 로직 존재.
+### 5-6. 요새 칩 효과 (칩 #4 회복 / 칩 #5 면역)
+- **칩 #5 (70% 이하 피해 면역)**: `BaseController`에 이미 `CheckAndTriggerImmunity()` / 위급 면역 칩 로직 존재.
+- **칩 #4 (10초마다 4/6/8% HP 회복)**: ⚠️ 위키 정확 — **Termination Phase(120초 후) 에는 회복 비활성**. 회복 틱 적용 시 `_elapsedTime < 120f` 가드 필수. (Termination의 -1000/s 드레인을 회복이 상쇄하면 안 됨)
 - Vanguard 칩 6종을 `ChipManager` 데이터로 추가하면 기존 `ChipEffectManager` 경로 탑승.
 
 ### 5-7. 칩 #6 (치명타 시 최대HP % 추가피해)
