@@ -8,7 +8,7 @@
 ---
 
 ## 0. 기존 컨텐츠 재사용 전략 (HordeDungeon / Ark / RaceTower 분석 결과)
-
+[2026-05-31_VanguardLobbyUI-impl-plan.md](UI/2026-05-31_VanguardLobbyUI-impl-plan.md)
 WiggleDefender의 던전 컨텐츠는 모두 Galaxy Defense 던전을 거의 그대로 이식한 것이며, 아웃게임 구조가 잘 확립돼 있다. Vanguard 아웃게임은 **새로 만드는 게 아니라 세 컨텐츠의 검증된 시스템을 조합**하는 것이 핵심이다.
 
 ### 한 줄 요약
