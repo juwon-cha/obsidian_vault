@@ -6,14 +6,16 @@
   "keys": "ContentsContinueUI,ContentsContinueItemUI",
   "phase_limit": "5c",
   "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-06-02_ContentsContinueUI",
-  "next_phase": "5b",
+  "next_phase": "done",
   "completed_phases": {
     "0": "remote 브랜치 bunker-defense/dev fetch + worktree 생성",
     "1": "FROM 17개 발견: 핵심 UI 5+Manager+DataSO/Data 8개 신규, 공유인프라 8개 부분병합, ManagerFactory 이식제외. WD에 ContentsContinue 전무(완전 신규). 프리팹 5개+JSON+SO18개+스프라이트",
     "2": "UI5=ADAPTED(ServiceAccessor->GetManager, UIBase OpenedAsync UniTask->Task), Manager=ADAPTED(BaseService->BaseManager, MessageBroker->EventManager), DataSO/Data=DIRECT. 이벤트결선 publisher1/subscriber2 모두 범위내(함정없음). GameEventType+POCO 선행. ManagerFactory->Managers.cs 5인자. InfinityCraft 제외(WD-only). DateTime.Now 없음",
     "3": "ContentsContinueUI_SYNC_PLAN.md 생성: 신규8(DIRECT3/ADAPTED5)+기존수정9. 체크리스트, priority=326, switch3곳, 이벤트 enum/POCO 선행, ManagerFactory제외/InfinityCraft제외, ECurrencyType 리맵, 커밋순서5단계",
     "4": "20/20 완료. 신규8(Manager BaseManager+GetManager+EventManager.Dispatch, UI 5 async Task, DataSO/Data 0-diff)+기존9(SaveDataTypes enum75/키140/클래스148, SaveDataManager switch3, Managers.cs 326, RedDot 노드+구독+PlayerLevelChanged, Lobby 버튼/진입, PlayerData 로드, Cheat 2커맨드, JsonToSO 메뉴). 검증: FROM패턴/InfinityCraft 누출 없음, async void/ToUniTask 없음, 의존성(PlayerLevelChanged/치트헬퍼) 존재",
-    "5a": "PREFAB_PACKAGE_LIST.md 생성. 재귀스캔 9개: 신규5(ContentsContinue 패밀리)/스킵4(공용 GUID동일). m_Script GUID 리맵 필수(5종 FROM!=TO). 진입팝업 2종 Resources->Resources_moved/UI 배치+Addressables. 서브3종 3_Prefabs 동일경로. LocalizeStringEvent 없음. 의존성순: Card->LevelSection->Item->UI->Timeline"
+    "5a": "PREFAB_PACKAGE_LIST.md 생성. 재귀스캔 9개: 신규5(ContentsContinue 패밀리)/스킵4(공용 GUID동일). m_Script GUID 리맵 필수(5종 FROM!=TO). 진입팝업 2종 Resources->Resources_moved/UI 배치+Addressables. 서브3종 3_Prefabs 동일경로. LocalizeStringEvent 없음. 의존성순: Card->LevelSection->Item->UI->Timeline",
+    "5b": "신규5 복사+스킵4. m_Script GUID 8건 리맵(진입팝업2종 임베드 ItemUI 템플릿 추가발견). 신규에셋 icon_contents_1.png. 사후검증 미해결GUID 0(46개 전부 해결). Resources_moved 배치. Addressables는 Unity Importer 자동등록(직접편집 안함). PREFAB_SYNC_REPORT.md 생성",
+    "5c": "자동패치 0. LobbyMainUI.prefab 버튼은 MANUAL(BD/WD RightButtons 레이아웃 상이+Unity실행중). PREFAB_PATCH_REPORT.md 생성. 후속: 로비 아이콘 icon_lobby_contants.png(guid bc3caa34) WD 복사 완료"
   },
   "worktree_created": true,
   "worktree_path": "/tmp/sync_ContentsContinueUI_1780395871"
