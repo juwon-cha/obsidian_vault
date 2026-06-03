@@ -809,48 +809,48 @@ unlockDescriptionKey: icon_vessel_transcend_a
 
 ### 공통 (가이드 문서 섹션 3)
 
-- [ ] `ECurrencyType.cs` — `vessel_transcend_a = 1285` 추가 (line 779)
-- [ ] `SaveDataTypes.cs` / `SaveDataManager.cs` — **변경 없음** (enum 자동 통합)
-- [ ] `Managers.cs` — **변경 없음** (Phase 2 검증 완료)
-- [ ] `link.xml` — **불필요** (enum 추가, IL2CPP stripping 위험 없음)
+- [x] `ECurrencyType.cs` — `vessel_transcend_a = 1285` 추가 (line 779)
+- [x] `SaveDataTypes.cs` / `SaveDataManager.cs` — **변경 없음** (enum 자동 통합)
+- [x] `Managers.cs` — **변경 없음** (Phase 2 검증 완료)
+- [x] `link.xml` — **불필요** (enum 추가, IL2CPP stripping 위험 없음)
 
 ### 신규 파일 생성 (복사 + 필요 시 rename/필드 수정)
 
-- [ ] `Assets/Resources/ScriptableObjects/UnitSkinData/30591.asset` + `.meta` (필드 변환)
-- [ ] `Assets/Resources/ScriptableObjects/UnitSkinData/30592.asset` + `.meta` (필드 변환)
-- [ ] `Assets/Resources/ScriptableObjects/UnitSkinData/30593.asset` + `.meta` (필드 변환)
-- [ ] `Assets/Resources/ScriptableObjects/UnitSkinData/30594.asset` + `.meta` (필드 변환)
-- [ ] `Assets/Resources/ScriptableObjects/UnitSkinData/30595.asset` + `.meta` (필드 변환)
-- [ ] `Assets/Resources/ScriptableObjects/CurrencyData/1285.asset` + `.meta` (BD 819.asset rename + 필드 변환)
-- [ ] `Assets/Resources/ScriptableObjects/ProfileIconData/58.asset` + `.meta` (**m_Script guid 재매핑 필수** + iconNameKey 변경)
-- [ ] `Assets/Resources_moved/Anim/IngameUnitSkin/Vessel_Anim_Skin2.controller` + `.meta`
-- [ ] `Assets/_Project/4_Animations/Vessel/Vessel_Attack_Skin2.anim` + `.meta`
-- [ ] `Assets/_Project/4_Animations/Vessel/Vessel_Charge_Idle_Skin2.anim` + `.meta`
-- [ ] `Assets/_Project/4_Animations/Vessel/Vessel_Charge_Skin2.anim` + `.meta`
-- [ ] `Assets/_Project/4_Animations/Vessel/Vessel_Idle_Skin2.anim` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_effect_06_vessel.png` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_effect_vessel_energy.png` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_attack1.png` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charge.png` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charger1.png` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charger2.png` + `.meta`
-- [ ] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charger3.png` + `.meta`
-- [ ] `Assets/Resources_moved/Sprites/Icon/icon_vessel_transcend_a.png` + `.meta`
-- [ ] `Assets/Resources_moved/Sprites/Icon/item_vessel_transcend_a.png` + `.meta`
-- [ ] `Assets/Resources_moved/Sprites/Skin/Unit/vessel_transcend_a/vessel_transcend_a.png` + `.meta`
-- [ ] `Assets/Resources_moved/Sprites/Skin/Unit/vessel_transcend_a/vessel_transcend_a_full.png` + `.meta`
-- [ ] `Assets/Resources_moved/Sprites/Skin/Unit/vessel_transcend_a.meta` (폴더 meta)
+- [x] `Assets/Resources/ScriptableObjects/UnitSkinData/30591.asset` + `.meta` (필드 변환)
+- [x] `Assets/Resources/ScriptableObjects/UnitSkinData/30592.asset` + `.meta` (필드 변환)
+- [x] `Assets/Resources/ScriptableObjects/UnitSkinData/30593.asset` + `.meta` (필드 변환)
+- [x] `Assets/Resources/ScriptableObjects/UnitSkinData/30594.asset` + `.meta` (필드 변환)
+- [x] `Assets/Resources/ScriptableObjects/UnitSkinData/30595.asset` + `.meta` (필드 변환)
+- [x] `Assets/Resources/ScriptableObjects/CurrencyData/1285.asset` + `.meta` (BD 819.asset rename + 필드 변환)
+- [x] `Assets/Resources/ScriptableObjects/ProfileIconData/58.asset` + `.meta` (**m_Script guid 재매핑 필수** + iconNameKey 변경)
+- [x] `Assets/Resources_moved/Anim/IngameUnitSkin/Vessel_Anim_Skin2.controller` + `.meta`
+- [x] `Assets/_Project/4_Animations/Vessel/Vessel_Attack_Skin2.anim` + `.meta`
+- [x] `Assets/_Project/4_Animations/Vessel/Vessel_Charge_Idle_Skin2.anim` + `.meta`
+- [x] `Assets/_Project/4_Animations/Vessel/Vessel_Charge_Skin2.anim` + `.meta`
+- [x] `Assets/_Project/4_Animations/Vessel/Vessel_Idle_Skin2.anim` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_effect_06_vessel.png` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_effect_vessel_energy.png` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_attack1.png` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charge.png` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charger1.png` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charger2.png` + `.meta`
+- [x] `Assets/_Project/6_Textures/Units/Vessel/special skin_unit_06_vessel_charger3.png` + `.meta`
+- [x] `Assets/Resources_moved/Sprites/Icon/icon_vessel_transcend_a.png` + `.meta`
+- [x] `Assets/Resources_moved/Sprites/Icon/item_vessel_transcend_a.png` + `.meta`
+- [x] `Assets/Resources_moved/Sprites/Skin/Unit/vessel_transcend_a/vessel_transcend_a.png` + `.meta`
+- [x] `Assets/Resources_moved/Sprites/Skin/Unit/vessel_transcend_a/vessel_transcend_a_full.png` + `.meta`
+- [x] `Assets/Resources_moved/Sprites/Skin/Unit/vessel_transcend_a.meta` (폴더 meta)
 
 (합계: 신규 파일 47개 = 데이터 .asset 14 + 애니메이션 10 + 텍스처 14 + 아이콘/폴더 9)
 
 ### 기존 파일 수정
 
-- [ ] `Assets/_Project/1_Scripts/Core/Enums/ECurrencyType.cs` — `vessel_transcend_a = 1285,` 1줄 추가
-- [ ] `Assets/Resources/JsonFiles/UnitSkinData.json` — entry 5개 추가 (id 30591~30595, costType1=1285, costType2=1055, costAmount 필드 없음)
-- [ ] `Assets/Resources/JsonFiles/CurrencyData.json` — entry 1개 추가 (currencyType 1285)
-- [ ] `Assets/Resources/JsonFiles/ProfileIconData.json` — entry 1개 추가 (iconIndex 58, iconNameKey `Profile_Icon_Name_58`)
-- [ ] `Assets/_Project/3_Prefabs/Units/Vessel/MovingVesselController.prefab` — Unity 에디터에서 `_skinVisuals` 수정
-- [ ] `Assets/_Project/3_Prefabs/Units/Vessel/SmallVesselController.prefab` — Unity 에디터에서 `_skinVisuals` 수정
+- [x] `Assets/_Project/1_Scripts/Core/Enums/ECurrencyType.cs` — `vessel_transcend_a = 1285,` 1줄 추가
+- [x] `Assets/Resources/JsonFiles/UnitSkinData.json` — entry 5개 추가 (id 30591~30595, costType1=1285, costType2=1055, costAmount 필드 없음)
+- [x] `Assets/Resources/JsonFiles/CurrencyData.json` — entry 1개 추가 (currencyType 1285)
+- [x] `Assets/Resources/JsonFiles/ProfileIconData.json` — entry 1개 추가 (iconIndex 58, iconNameKey `Profile_Icon_Name_58`)
+- [ ] `Assets/_Project/3_Prefabs/Units/Vessel/MovingVesselController.prefab` — Unity 에디터에서 `_skinVisuals` 수정 🟧
+- [ ] `Assets/_Project/3_Prefabs/Units/Vessel/SmallVesselController.prefab` — Unity 에디터에서 `_skinVisuals` 수정 🟧
 
 ### 시트(DataSheet) PIC 안내 — **이 sync 작업의 ground truth**
 
@@ -862,10 +862,10 @@ unlockDescriptionKey: icon_vessel_transcend_a
 
 ### PARTIAL 파일 처리
 
-- [ ] `UnitSkinData.json` — `costAmount1`, `costAmount2` 필드 제거 처리 완료 확인
-- [ ] `UnitSkinData.json` / `*.asset` — `costType2: 374` → `1055` 치환 완료 확인
-- [ ] `ProfileIconData/58.asset` — `m_Script guid` `14ae038bb36d30c4b9548f59cf924a4c`로 재매핑 확인
-- [ ] `MovingVesselController.prefab` / `SmallVesselController.prefab` — Unity 에디터 작업 완료
+- [x] `UnitSkinData.json` — `costAmount1`, `costAmount2` 필드 제거 처리 완료 확인
+- [x] `UnitSkinData.json` / `*.asset` — `costType2: 374` → `1055` 치환 완료 확인
+- [x] `ProfileIconData/58.asset` — `m_Script guid` `14ae038bb36d30c4b9548f59cf924a4c`로 재매핑 확인
+- [ ] `MovingVesselController.prefab` / `SmallVesselController.prefab` — Unity 에디터 작업 완료 🟧
 
 ### sync 후 검증
 

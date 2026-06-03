@@ -1,0 +1,21 @@
+{
+  "from": "origin/temp-bunker/dev",
+  "from_local": "C:/Users/JuwonCha/AppData/Local/Temp/sync_vessel_transcend_a_20260603_231737",
+  "to": "C:/JuwonCha/WriggleDefender",
+  "system": "vessel_transcend_a",
+  "keys": "UnitSkin, VesselTranscend, vessel_transcend_a",
+  "phase_limit": "5a",
+  "output_dir": "C:/JuwonCha/myObsidianVault/Sync/2026-06-03_vessel_transcend_a",
+  "reference_plan_path": "C:/JuwonCha/myObsidianVault/Sync/2026-05-13_UnitSkin_dragoon_transcend_a/UnitSkin_dragoon_transcend_a_SYNC_PLAN.md",
+  "next_phase": "done",
+  "completed_phases": {
+    "0": "remote=temp-bunker, branch=dev, worktree 생성 완료",
+    "1": "CS 변경 1개(ECurrencyType vessel_transcend_a=1285 추가). 인프라 의존성 0개. 데이터/아이콘은 Phase 2 검토",
+    "2": "CS 1+JSON 3+asset 7+controller/anim 5+텍스처 7+아이콘 2+프리팹 2 편집. 모두 ADAPTED/DIRECT, BLOCKED 0",
+    "3": "SYNC_PLAN.md 생성(997라인). HIGH 경고 3건. ProfileIconData.asset GUID 재매핑 필수",
+    "4": "39/41 완료. enum 1+JSON 3+SO asset 7쌍+바이너리 33개. Prefab 2건은 Unity 에디터 필요",
+    "5a": "SKIP — 신규 이식 대상 프리팹 없음. 기존 WD 프리팹 2건 편집은 Phase 4 user task로 처리"
+  },
+  "worktree_created": true,
+  "worktree_path": "C:/Users/JuwonCha/AppData/Local/Temp/sync_vessel_transcend_a_20260603_231737"
+}
