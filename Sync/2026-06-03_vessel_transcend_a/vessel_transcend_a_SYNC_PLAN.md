@@ -849,8 +849,9 @@ unlockDescriptionKey: icon_vessel_transcend_a
 - [x] `Assets/Resources/JsonFiles/UnitSkinData.json` — entry 5개 추가 (id 30591~30595, costType1=1285, costType2=1055, costAmount 필드 없음)
 - [x] `Assets/Resources/JsonFiles/CurrencyData.json` — entry 1개 추가 (currencyType 1285)
 - [x] `Assets/Resources/JsonFiles/ProfileIconData.json` — entry 1개 추가 (iconIndex 58, iconNameKey `Profile_Icon_Name_58`)
-- [ ] `Assets/_Project/3_Prefabs/Units/Vessel/MovingVesselController.prefab` — Unity 에디터에서 `_skinVisuals` 수정 🟧
-- [ ] `Assets/_Project/3_Prefabs/Units/Vessel/SmallVesselController.prefab` — Unity 에디터에서 `_skinVisuals` 수정 🟧
+- [x] `Assets/_Project/3_Prefabs/Units/Vessel/MovingVesselController.prefab` — VFX_Vessel_Loop_Skin2 인스턴스 텍스트머지 + `_skinVisuals` 추가 (Unity종료후 머지, 인스턴스화 검증 통과)
+- [x] `Assets/_Project/3_Prefabs/Units/Vessel/SmallVesselController.prefab` — 동일 (텍스트머지 완료, import 에러0)
+- [x] 누락 텍스처 보강: `_Project/7_VFX/Texture/special skin_unit_06_vessel_attack1.png`(171ea565), `special skin_effect_06_vessel.png`(41bf2fb0) — VFX 파티클 참조용 (플랜 누락분)
 
 ### 시트(DataSheet) PIC 안내 — **이 sync 작업의 ground truth**
 
