@@ -1,545 +1,439 @@
-# Project Ember Vanguard 구현 계획 - 인게임 (2026-05-29)
+# Project Ember Vanguard 구현 계획 - 인게임
 
+> 최초 작성 2026-05-29 · **2026-06-06 전면 개정**(이 파일이 현행본)
 > 상위 문서: [[2026-05-29_vanguard-implementation-plan-overview]]
 > 짝 문서: [[2026-05-29_vanguard-implementation-plan-outgame]]
+> 개정 근거: **카오스 페스티벌 — 서버 API 명세 (기획서 포함)** + 기획서 5종(플로우/인게임/스테이지보정/티어/매칭) + 위키(원작 FTD) 대조
 
-인게임(전투) 영역: 전투 모델, 진행 플로우, 고스트 재생, 메커니즘 매핑, 녹화, 치팅 방지, 클래스 설계.
-
----
-
-## 1. 전투 모델 — 클론 고스트 레이스 `[설계 판단]`
-
-```
-상대 = 녹화된 고스트 (살아있는 네트워크 객체 X)
-- 전투 시작 전: 상대 클론 데이터 1회 다운로드
-- 전투 중: 네트워크 0회, 상대는 로컬 재생
-- 전투 종료 후: 결과 1회 업로드 + 내 전투가 다음 사람의 클론이 됨
-```
-
-마리오카트 고스트 / 트랙매니아 페이스라인과 동일 개념. 나는 내 전투를 실제로 플레이하고, 상대 기록과 나란히 달린다.
-
-**이 모델이 회피하는 문제**
-- `Managers.Instance` 싱글톤 → 두 번째 전투 시뮬 불필요 (상대는 재생)
-- 적 이동 비결정성(`Time.deltaTime`, float) → 재현이 아니라 재생이라 무관
-- 실시간 서버 → HTTP 요청/응답만으로 충분
+인게임(전투) 영역: 전투 모델, 진행 플로우, 고스트 생성, 메커니즘 매핑, 검증, 치팅 방지, 클래스 설계.
 
 ---
 
-## 1-A. 전투 아키텍처 패턴 (씬 재활용 + 패턴 선택)
+## 0. 개정 요약 (2026-05-29 → 2026-06-06) ⚠️ 필독
 
-### 씬 — GameScene 재활용 (새 씬 불필요)
+원본 계획은 **"녹화/재생(replay) 고스트"** 모델로 작성되었으나, 확정된 서버 API 명세와 매칭/인게임/티어 기획서, 그리고 위키(원작 FTD)는 **"loadout만 저장 + 결정론적 벤치마크(replay 아님)"** 모델로 못박혀 있다. 이 차이가 인게임 아키텍처의 절반을 뒤집으므로, 영향 받는 섹션을 전면 개정한다.
 
-WiggleDefender는 모든 인게임이 단일 GameScene을 모드별로 재활용한다. Vanguard 스플릿뷰도 **새 씬 없이** 이 구조를 그대로 쓴다. 근거:
+### 0-1. 본질: 비동기 PvP — 상대는 "반응하는 적"이 아니라 "고정된 기준점"
+- 매칭은 비동기다. 서버가 상대 클론의 **loadout + match_seed + 라운드 보정**을 내려준다.
+- **상대 고스트의 성적은 결정론적 벤치마크**다: `f(상대 loadout, match_seed, 라운드 보정, 자동 카드선택 정책)`. 내 플레이는 이 함수의 인자가 아니다 → 상대 성적표는 매칭 시점에 고정.
+- **내 성적표는 내가 실제로 플레이해야 채워진다.** 따라서 승패는 매칭 순간이 아니라 내 플레이로 결정되고, 클라가 결과를 서버에 제출한다. ← **이게 비동기 PvP가 성립하는 이유**(위키 듀얼 화면: 상대는 정적 프로필 + "Points granted if you win" + "There is always a Risk that your opponent can win").
+- **결정성 범위 정정(중요)**: 결정성이 필요한 건 **상대 벤치마크뿐**이며, 그것도 계산 위치에 따라 클라 부담이 갈린다(§4 방안 A/B). **내 전투는 결정적일 필요가 없다** — 평소 전투처럼 구동하고 결과만 보고하면 서버가 상한·체크섬으로 검증한다.
+
+| # | 항목 | 원본(2026-05-29) | 확정(2026-06-06, 기획서+명세+위키) | 영향 |
+|---|---|---|---|
+| C1 | **상대 표현** | 녹화 리플레이 재생(HP/적수 커브 샘플) | **loadout만 저장 → 결정론적 벤치마크**(명세 2-3/2-4/13-4 "과거 기록 재생이 아님") | §1·2·4·6 재작성 |
+| C2 | **결정성** | "재생이라 결정성 불필요" | **상대 벤치마크에만** 필요(내 전투는 불요). 위치는 §4 방안 A/B 결정 | §2·4·7 재작성 |
+| C3 | **상대 처리 위치** | "재생" | **서버 사전계산 전송(A)** 또는 **클라 시뮬+서버 재시뮬 검증(B)** | §4·10 결정 항목 |
+| C4 | **스테이지 보정** | 매치 1개(전투 전체 공통) | **매치당 3개 선정 → Round1/2/3에 1개씩 배정**, 직전 매치와 교집합 ≤1 | §5 신규 5-0 추가 |
+| C5 | **120초 페이즈** | Termination(양측 요새 -1000 HP/s) | **2차 광폭화 = 적 이동속도 증가로 확정**(기획서+명세 13-2 일치). 드레인은 위키/구계획 잔재 → 제거 | §5-5 확정 |
+| C6 | **점수 산출** | 가중합(생존시간·HP·처치수) 클라 계산 후 비교 | **라운드 BO3 승패 판정**(클리어/생존/동률 타이브레이크) → 서버가 점수표로 산정 | §5-8 재작성 |
+| C7 | **결과 API** | `/vanguard/match/result` {myScore, replayData} | **`/vanguard/battle/result`** {rounds[], checksum} (replay 없음) | §8 재작성 |
+| C8 | **보너스 카드 조건** | 코드: 내 적수 > 고스트 적수 | 기획서/명세: **내 적수 < 고스트 적수**(내가 우세할 때) | §5-3 로직 반전 수정 |
+| C9 | **CPS 초월 점수** | 17 | **20** (매칭 기획서·명세 §11) | §9 수치 정정 |
+| C10 | **무승부** | 라운드 동률 시 무승부 처리(구 기획서) | **무승부 없음** — 동시 패배·매치 동률 시 단일 승자 강제 산출 | §5-8 확정 |
+
+**여전히 유효한 자산**: §12의 코드 훅 매핑(적 스폰/요새/칩/카드 경로)은 모델과 무관하게 그대로 쓴다. 바뀌는 건 "상대를 어떻게 만들고 검증하느냐"이지, "내 전투를 어떻게 구동하느냐"가 아니다.
+
+---
+
+## 1. 전투 모델 — 클론 즉석 시뮬 스플릿 레이스 `[전면 개정 C1·C3]`
 
 ```
-스플릿뷰는 "두 개의 전투 월드"가 아니다.
-  위(Self) : 내 실제 전투 — EnemyManager 1개, 기존 그대로
-  아래(Ghost): 고스트 재생 UI 패널 — HP바/적수 재생, 시뮬레이션 아님
-→ GameScene은 여전히 전투 월드 1개만 구동 (싱글톤 충돌 없음)
+상대 = 상대의 loadout(편성+칩+강화레벨)으로 산출되는 결정론적 벤치마크
+- 전투 시작 전: 서버 match/find → 상대 clone의 loadout + match_seed + stage_modifier (+ 방안 A면 상대 타임라인) 수신
+- 전투 중:   내 전투(실제 입력)만 실제 구동. 하단 고스트는 벤치마크 타임라인 표시
+- 전투 종료: 라운드별 내 결과 업로드 → 서버가 내 결과 vs 상대 벤치마크 비교·정산
+- 내 데이터: loadout만 클론 풀에 저장(전투 기록 저장 안 함)
 ```
 
-- **인게임 UI는 씬에 박힌 게 아니라 `UIManager.Show<T>()` 프리팹 구동** — 모드별로 다른 UI를 띄운다(`ArkGameResultUI` 등 선례). → Vanguard 스플릿뷰 = 신규 UI 프리팹 `VanguardBattleUI` 하나.
-- **모드별 카메라/레이아웃 변형 선례 존재**: `Utils/InGameModeVariant.cs`가 360모드에서 카메라 `orthographicSize`·배경을 변형. 스플릿 카메라(상/하 뷰포트)도 같은 자리에서 `GameModeType.Vanguard` 분기로 처리.
-- 고스트(아래)는 `VanguardGhostPlayer`(4장)의 UI 재생이므로 **GameScene에 추가 월드/매니저를 띄우지 않는다.**
+> ⚠️ 원본의 "마리오카트 고스트(녹화 재생)" 비유는 폐기. 정확한 비유는 **타임어택의 고정 기준 기록**이다 — 상대 기록은 내 주행과 무관하게 정해져 있고, 나는 내 주행으로 그 기록을 넘느냐를 겨룬다. 비동기 PvP가 성립하는 핵심(§0-1).
 
-> 결론: **GameScene + `VanguardBattleUI` 프리팹 + 카메라 뷰포트 변형**으로 스플릿뷰 구현. 새 씬 제작 불필요.
+**모델이 요구하는 것 (정정 — 원본/이전 개정의 과장 교정)**
+- **내 전투에는 추가 제약 없음**: 평소처럼 구동하고 결과만 보고. 결정성·2번째 시뮬 모두 내 전투엔 불요.
+- **상대 벤치마크 산출만** 필요하며, 그 위치가 핵심 결정(§4): 서버가 만들어 내려주면(방안 A) 클라는 시뮬·결정성 모두 0이고, 클라가 만들면(방안 B) 그 고스트 시뮬만 결정적이어야 한다.
+- `Managers.Instance` 싱글톤(EnemyManager 등)이 1개뿐인 제약은 **방안 A에서 자연 해소**(클라는 내 전투 1개만 구동). 방안 B를 택할 때만 두 번째 시뮬 위치 문제가 생긴다.
 
-### 패턴 — 하나가 아니라 레이어별 하이브리드
+> 원본 §1 "이 모델이 회피하는 문제" 중 **실시간 서버 불필요는 여전히 유효**(HTTP req/res로 충분). 싱글톤·비결정성 회피는 방안 A에선 유효, 방안 B에선 부분 재등장.
 
-이 프로젝트는 이미 세 패턴을 레이어별로 섞어 쓰며, 본 계획도 그 방향으로 수렴해 있다.
+---
 
-| 패턴 | 적용 범위 | 프로젝트 대응 |
-|---|---|---|
-| **Session Context (payload)** | ✅ **주축** | `VanguardMatchData` payload + 결과 콜백(`SubmitResultAsync`). 클론고스트+HTTP req/res 모델과 1:1 |
-| **Strategy / DI** | ✅ **Match/Duel 차이에만** | `StagePlayService`가 이미 모드별 폴리모픽. 그 안에서 Match/Duel은 작은 `IVanguardMatchProcessor`로 |
-| **FSM Flow** | ✅ **전투 페이즈에만** | normal→Berserk(60s)→Termination(120s). PunchKing `CheckEnrageCondition` 선례. **신규 글로벌 FlowManager는 만들지 않음** |
+## 1-A. 전투 아키텍처 패턴 (씬 재활용 + 패턴 선택) `[유지]`
 
-**왜 이 조합인가**
-- **Session Context 주축**: Vanguard 본질이 "서버 payload 수신 → 전투 → 결과 송신". 상태를 클라에 박지 않고 payload로 흘리는 게 정확히 맞음.
-- **Strategy는 좁게**: 전투 전체를 추상화하면 과함. Match/Duel이 실제로 갈리는 건 **입장료 소모 · 보상 계산 · 랭킹 포인트** 3가지뿐. 전투 씬은 이를 모름.
-- **FSM 신규 금지**: Lobby→Entry→Combat→Result는 이미 `로비UI → 매칭 → SceneManager.LoadGameScene → StagePlayService → 결과`로 기존 매니저가 처리. 별도 FlowManager는 책임 중복. FSM이 필요한 건 전투 내부 페이즈뿐 → `VanguardStagePlayService` 내 시간 게이트.
+원본 그대로 유효하다. GameScene 재활용 + `VanguardBattleUI` 프리팹 + 카메라 뷰포트 변형, Session Context(payload) 주축 + Strategy(Match/Duel) + FSM(전투 페이즈)의 하이브리드. (원본 §1-A 본문 유지)
+
+단 payload 구조는 C1 반영해 `opponentClone`을 **replay 데이터가 아니라 loadout 스냅샷**으로 정정한다:
 
 ```csharp
-// payload에 전략을 실어 보낸다 (Context + Strategy 결합)
 public class VanguardMatchData
 {
     public EVanguardMode mode;                 // Match / Duel
-    public IVanguardMatchProcessor processor;  // 입장료/보상/랭킹만 담당 (전투 무관)
-    public VanguardReplayData opponentClone;   // 고스트 재생용
-    public int matchSeed;                      // 부수 무작위용 고정 시드
-    public Action<VanguardResult> onComplete;  // 전투 종료 콜백 (= 결과 송신)
+    public string battleId;                    // ★ 신규: 서버 세션 멱등 키
+    public IVanguardMatchProcessor processor;  // 입장료/보상/랭킹만 담당
+    public VanguardLoadoutSnapshot opponentLoadout; // ★ 변경: replay → loadout 스냅샷(고스트 시뮬 입력)
+    public int matchSeed;                      // 결정적 시뮬 시드(고스트+부수 무작위 공유)
+    public VanguardStageModifierSet stageModifiers; // ★ 신규: 라운드별 보정 3종(§5-0)
+    public Action<VanguardResult> onComplete;  // 결과 송신 콜백
 }
-
-/// <summary>Match/Duel 차이만 담당. 전투 로직과 분리.</summary>
-public interface IVanguardMatchProcessor
-{
-    bool TryConsumeEntry();                     // Match: ExtraReward 차감 / Duel: Dual Token 차감
-    VanguardReward CalculateReward(VanguardResult result);
-    int CalculatePointDelta(VanguardResult result, int opponentRank);
-}
-// → NormalMatchProcessor / DuelMatchProcessor 2구현체
 ```
-
-> `VanguardStagePlayService`(10장)는 `VanguardMatchData`를 받아 전투만 구동하고, 종료 시 `onComplete`로 결과를 던진다. 입장료/보상/랭킹은 `processor`가, 페이즈 전이는 서비스 내부 시간 게이트가 담당한다.
 
 ---
 
-## 2. 공정성 / 시드 모델 (위키 기준 — 고정 공유 시나리오)
+## 2. 공정성 / 시드 모델 `[전면 개정 C2]`
 
-**위키 규칙 — 카드 세트·적 구성은 모든 플레이어 동일**
-- 위키 원문: *라운드별 터렛 카드 세트 고정, 모든 플레이어 동일.* / *라운드당 일반 6 + 정예 2, 모든 플레이어 동일.*
-- 즉 카드 세트와 적 구성은 **무작위가 아니라 그 주차에 결정론적으로 고정·공유**된다.
+**확정 규칙 — 양측 동일 환경에서 각자 시뮬**
+- 카드 세트·적 구성은 서버가 시즌 자동 생성으로 고정(명세 §10). 클라 임의 draw 금지.
+- 내 전투와 상대 고스트는 **동일 `match_seed` + 동일 `stage_modifier` + 동일 스테이지**에서 시뮬된다. 입력(편성/칩/조작)만 다르다 → 시드 운 편차 없음.
+- 상대 고스트는 "녹화 재생"이 아니라 같은 시드로 돌린 결정적 시뮬이므로, **결정성이 깨지면 서버 검증(opp_* 대조)에서 탈락**한다.
 
-**공정성 모델 — "고정 공유 시나리오 + 점수 비교"**
-- 모든 플레이어가 **동일한 카드 세트 + 동일한 적 구성**을 상대한다 → 시드 운 편차가 원천적으로 없음.
-- 각자 자기 시간에 같은 시나리오를 플레이하고, **점수**(생존시간/잔여HP/처치수)로 비교한다.
-- 상대(클론)는 같은 시나리오를 플레이한 녹화 고스트 → 직접 비교 가능 (시드 일치 문제 없음).
-- 이 모델은 기존 "A(느슨)/B(엄격)" 구분을 대체한다: **시나리오가 고정 공유이므로 A의 단순함 + B의 공정성을 동시에 확보.**
-
-**구현 방침 (위키 준수)**
-- 카드 후보 세트·적 구성은 **서버가 내려준 주차 고정 세트**를 그대로 사용. 클라이언트가 임의 draw하지 않는다.
-- `UnityEngine.Random` **절대 금지**. 세트 내에서 순서/위치 등 부수적 무작위가 필요하면 서버가 내려준 고정 시드로 `System.Random` 사용 (녹화/재생 일치 보장).
+**구현 방침 (결정성 범위 — 정정)**
+- **내 전투에는 결정성 요구 없음.** 평소 전투처럼 `Time.deltaTime`·물리·일반 RNG 사용 가능. 나는 플레이하고 결과만 보고 → 서버가 상한·체크섬·휴리스틱으로 검증(재현 아님).
+- **결정성은 "상대 벤치마크"에만** 필요하다. 그리고 그 부담의 크기는 벤치마크를 어디서 만드느냐에 달렸다(§4):
+  - **방안 A(서버 사전계산)**: 클라 결정성 요구 **0**. 서버가 시뮬해 타임라인을 내려주고 클라는 표시만.
+  - **방안 B(클라 시뮬)**: **그 고스트 시뮬만** 결정적이어야 함. `UnityEngine.Random` 금지·`match_seed` 기반 `System.Random`·고정 틱 누적·float 순서 보장 + 서버 재시뮬 동치성(허용 오차 밴드 협상).
+- 라운드 시작 카드 등 **공유 시나리오의 부수 무작위**는 양안 공통으로 `match_seed` 기반 `System.Random`(클라/서버 동일 산출) — 카드 풀 자체는 서버 고정(§10).
 
 ---
 
-## 3. 전투 진행 플로우
+## 3. 전투 진행 플로우 `[개정 C1·C4·C7]`
 
 ```
-① VanguardService.RequestMatchAsync() → { matchId, opponentClone, matchSeed }
-② 상대 클론(고스트 데이터) 로컬 보관
+① VanguardServerService.FindMatchAsync(MATCH)
+     → { battle_id, match_seed, stage_modifier(3종), opponent.loadout }   // §명세 5-1
+② 상대 loadout + 라운드별 보정 로컬 보관 (replay 보관 아님)
 ③ SceneManager.LoadGameSceneAsync(GameModeType.Vanguard, vanguardStageId)
 ④ StageManager → VanguardStagePlayService.StartVanguardBattleAsync()
      - matchSeed 로 System.Random 초기화
-     - VanguardGhostPlayer.LoadReplay(opponentClone)  → 상대 패널 재생 시작
-     - VanguardReplayRecorder.BeginRecording()          → 내 전투 녹화 시작
-⑤ 전투 진행 (기존 ProcessWavesAsync 골격 재사용 + 분기)
-     - 라운드마다 6 Regular + 2 Elite draw (시드 기반)
-     - 라운드 시작 시 랜덤 카드 1장
-     - 20/40/60s: Adversity Boost 체크
-     - 60s: Berserk (적 CC 면역)
-     - 120s: Termination (양측 요새 HP -1000/s)
-⑥ 종료 조건 도달 → 점수 산출
-⑦ VanguardService.SubmitResultAsync() → { win, pointDelta, newScore, newTier, rewards }
-     - 동시에 내 replayData가 "다음 사람의 클론"으로 서버 저장
+     - VanguardGhostSim.Init(opponentLoadout, matchSeed)  → 상대 고스트 시뮬 준비(§4)
+     - (녹화 Recorder 불필요 — 결과는 라운드 집계로 생성)
+⑤ 라운드 루프 (BO3, 2승 확정돼도 3라운드 진행)
+     - Round r: stageModifiers[r] 적용(§5-0)
+     - 6 Regular + 2 Elite (서버 고정 구성)
+     - 라운드 시작 시 카드 선택
+     - 20/40/60s: 보너스 카드 체크(내 적수 < 고스트 적수)
+     - 60s: 1차 광폭화(적 CC 면역)
+     - 120s: 2차 광폭화(적 이동속도 증가)
+     - 라운드 종료 → 라운드 승패 판정(§5-8)
+⑥ 매치 종료 → rounds[] 집계(내 결과 + 고스트 결과)
+⑦ VanguardServerService.SubmitBattleResultAsync(battle_id, rounds[], checksum)  // §명세 7-1
+     → { win, score_breakdown, new_tier, score_in_division, chaos, rewards, ... }
+     - 서버가 내 결과 vs 상대 벤치마크 비교 후 점수·티어 정산(클라는 표시만)
 ```
 
 ---
 
-## 4. 상대 고스트 표현 — 2단계
+## 4. 상대 고스트 표현 — 벤치마크 계산 위치 결정 `[전면 개정 C1·C2·C3]`
 
-### v1 — 미니멀 (추천)
+원본의 v1(HP/적수 커브 재생)·v2(녹화 position 재생)는 **녹화 데이터를 전제**하므로 폐기. 상대는 결정론적 벤치마크이므로 **누군가는 그 성적(타임라인)을 계산**해야 한다. 클라가 표시에 필요한 값은 적고 명확하다: **20/40/60초 시점 생존 적 수**(보너스 카드 트리거용) + **클리어/생존 시각·최종 잔여 적·잔여 HP**(승패 비교용) + HP바 보간용 커브.
 
-전투 로직 없이 **HP바 + 생존 적 수 + 로드아웃 아이콘**만 재생. `EnemyManager` 전혀 사용 안 함 → 싱글톤 충돌 0.
+### 방안 A — 서버가 벤치마크 계산·전송 (클라 단순 / 권장 1순위)
+서버가 매칭 시 상대 loadout을 시뮬해 타임라인 `{alive@20/40/60, clear_time, survival_time, final_enemies_left, final_hp_left, hp_curve}`을 만들어 `match/find` 응답에 실어 내려준다.
 
-```csharp
-// VanguardGhostPlayer.cs
-public class VanguardGhostPlayer
-{
-    private VanguardReplayData _replay;
-    private float _elapsedTime;
-
-    public float CurrentFortressHp { get; private set; }
-    public int   CurrentAliveCount { get; private set; }
-
-    public void LoadReplay(VanguardReplayData replay) => _replay = replay;
-
-    public void UpdateGhost(float deltaTime)
-    {
-        _elapsedTime += deltaTime;
-        CurrentFortressHp = SampleCurve(_replay.fortressHpCurve, _elapsedTime);
-        CurrentAliveCount = SampleCurve(_replay.aliveCountCurve, _elapsedTime);
-    }
-
-    public void ApplyTerminationDrain(float drain)
-        => CurrentFortressHp = Mathf.Max(0f, CurrentFortressHp - drain);
-}
+```
+장점: 클라는 상대 시뮬을 아예 안 함 → 클라 결정성 요구 0.
+      내 전투만 구동, 하단 고스트 패널은 받은 타임라인 재생(원본 v1 커브 샘플링 코드 재활용).
+      승패·opp_* 비교를 서버가 자기 벤치마크로 수행 → opp_* 클라 보고/검증 불필요.
+전제: 서버가 전투 시뮬 보유. ※ 명세는 이미 검증용 서버 재시뮬을 전제하므로,
+      그 시뮬로 벤치마크까지 만들면 클라 시뮬을 통째로 제거 가능(중복 제거).
 ```
 
-### v2 — 리치 (폴리시, M6)
+### 방안 B — 클라가 고스트 시뮬 + 서버 재시뮬 검증 (명세 문자 그대로)
+클라가 상대 loadout을 `match_seed`로 시뮬(헤드리스 or 사전 1회 계산 후 재생)해 고스트를 만들고, 결과의 `opp_*`를 서버가 재시뮬로 대조(불일치 7207).
 
-상대 측에 적 스프라이트를 녹화 위치대로 띄움 (전투 로직 없는 순수 비주얼). 카메라 분리:
 ```
-카메라 A (내 전투):    cullingMask = "VanguardSelf"
-카메라 B (상대 고스트): cullingMask = "VanguardGhost"
-고스트 적 → 녹화 position 샘플 보간 이동, HP/충돌/AI 전부 없음
+장점: 서버 전투 시뮬 부담이 (전수 생성이 아니라) 검증 샘플링 수준일 수 있음.
+단점: 클라 전투 코어를 "결정적 + 렌더 분리 가능"으로 리팩토링(§2 방안 B 조건).
+      클라/서버 float 동치성(허용 오차 밴드) 협상 필요.
 ```
+
+> ⚠️ **설계 결정 (서버팀과)**: A(서버 벤치마크 전송) vs B(클라 시뮬+검증). **A를 권장** — 클라 결정성 부담이 0이고, 서버가 어차피 가져야 할 시뮬을 한 번만 쓰면 되기 때문. 단 서버 전투 시뮬 구현 비용은 서버팀 판단 영역. 스플릿 카메라/UI 레이아웃(원본 §10)은 두 방안 공통으로 유효.
 
 ---
 
-## 5. 위키 메커니즘 → 구현 매핑
+## 5. 위키/기획서 메커니즘 → 구현 매핑
 
-### 5-1. 공유 웨이브 (6 Regular + 2 Elite — 전 플레이어 동일) `[코드 검증 반영]`
-- 위키 기준 적 구성은 **모든 플레이어 동일한 고정 세트**. 서버가 주차/라운드별 웨이브 구성을 내려준다.
-- 기존 `WaveDataSO` 재사용하되 **구성은 서버 제공 고정값**을 그대로 주입.
-- ⚠️ **웨이브 엔진이 둘이다 — Vanguard는 `BaseStagePlayService` 경로 채택**:
-  - `StageManager.ProcessWavesAsync()`(private, `:1012`) = 일반/Ark/RaceTower용.
-  - `BaseStagePlayService.ProcessWavesAsync()`(`StageServices/BaseStagePlayService.cs:125`) = **PunchKing이 상속**하는 서비스 경로. Vanguard도 이걸 상속.
-  - 6 Regular + 2 Elite 라운드 구성은 `BaseStagePlayService`의 오버라이드 훅 `SpawnEliteAndBossAsync():241` / `SpawnElitesForWaveAsync():268`에서 주입(깨끗한 오버라이드 지점). 적 스폰은 `EnemyManager.StartWaveSpawnAsync(WaveDataSO):188` / 위치지정 `SpawnSingleEnemyAtPositionAsync(id, pos, giveExp):1643`.
-  - 진입: `StageManager.StartStageWithStageDataAsync():838`의 모드 분기(`:924-961`, RaceTower/PunchKing 분기가 있는 자리)에 `GameModeType.Vanguard` 분기 추가 → `_vanguardStagePlayService`로 위임. 서비스 필드는 `StageManager.InitializeAsync():26-32`에서 `new VanguardStagePlayService(); .Initialize(this)`(this=`IStageServiceContext`).
+### 5-0. 라운드별 스테이지 보정 `[신규 C4]`
+명세 2-7 + 스테이지보정 기획서 확정 규칙:
+- 매칭 생성 시 **활성 보정 풀에서 중복 없이 3개** 선정 → **Round1/2/3에 1개씩** 배정.
+- 동일 경기 내 보정 중복 불가. **직전 매치 보정과 교집합 2개 이상이면 재추첨**(최대 1개까지만 중복 허용).
+- 보정 종류: 내성(속성 피해 -), 약점(속성 피해 +), 체력 계수(HP×), 이동속도(+). 속성: FIRE/ELECTRIC/ICE/ENERGY/HUMAN.
+- 클라는 보정을 **로비에서 사전 공개**하고, 라운드 진입 시 해당 라운드 보정을 전투에 적용.
 
 ```csharp
-// 서버가 내려준 고정 웨이브 구성을 그대로 사용 (클라 임의 draw 금지)
-foreach (var round in serverWaveConfig.rounds)
-{
-    // round.regularIds (6), round.eliteIds (2) — 전 플레이어 동일
-}
+// payload의 stageModifiers[roundIndex]를 라운드 시작 시 적용.
+// 적용 지점: 적 스폰/스탯 산출부(체력계수·이동속도)와 데미지 수신부(내성·약점).
+//  - 체력계수 → BuildStageData의 stageHpCoefficient에 곱(§5-1 경로 재사용)
+//  - 이동속도 → 적 컨트롤러 이동속도 배율
+//  - 내성/약점(속성 피해 증감) → DamageCalculationManager 속성 피해 단계에 가산(곱연산 금지)
 ```
+> 보정값(예: -0.5, ×2.0, +0.2)은 서버가 `stage_modifier.effects[]`로 내려주므로 클라는 수치를 하드코딩하지 않는다.
 
-**적 스탯 스케일링 (위키 신규 — 중요)** `[코드 검증 반영]`
-- 적 HP/공격은 **현재 티어에 따라 스케일링**된다 (티어 높을수록 강함).
-- 적이 **텔레포트할 때마다 HP·공격이 증가**한다.
-- **티어 스케일링 — 권장 구현(컨트롤러 수정 0):** 적 스탯은 `BaseEnemyController.ApplyStageAndWaveCoefficients(EnemyDataSO):1191`에서 `enemyData.maxHealth/attackDamage × StageManager.GetStageHealthCoefficient() × waveCoeff`로 산출되고 `FinalMaxHealth/FinalAttackDamage/CurrentHealth`(`:1235-1237`)에 들어간다. `GetStageHealthCoefficient():2022`는 `CurrentStageData.stageHpCoefficient × _currentDynamicBalanceHpMultiplier`. → **티어별 `stageHpCoefficient/stageAtkCoefficient`를 가진 Vanguard `StageDataSO`를 `BuildStageData`에서 만들면** 적 컨트롤러를 건드리지 않고 티어 스케일이 전파된다(가장 깨끗). Ark의 `_currentDynamicBalanceHpMultiplier`(`StageManager.cs:524`, `CalculateDynamicBalanceHpMultiplier():2419`)와 동일한 주입 경로.
-  - ⚠️ HP 동적배율은 `stageHpCoefficient`에만 곱해지고 **ATK 동적배율은 없음**(ATK는 `stageAtkCoefficient`만). 티어 ATK 스케일이 필요하면 `GetStageAttackCoefficient()` 경로에 동형 배율을 추가하거나 `BuildStageData`의 `atkCoeff`에 티어배율을 곱해 둔다.
-- **텔레포트 시 스탯 증가 — 훅 위치:** 적 텔레포트는 `EEnemySkillType.TeleportShield`(`EEnemyTypes.cs:75`) → `TeleportShieldSkill`(`Skills/TeleportShieldSkill.cs`). 발동 진입은 `BaseEnemyController.CheckAndActivateTeleportShield(finalDamage):360`, 실제 텔레포트는 `TeleportShieldSkill.ActivateTeleportShieldAsync():134`. → **여기서 `_owner.FinalAttackDamage *= x; _owner.FinalMaxHealth *= x; _owner.CurrentHealth *= x;`** 추가(런타임 배율 선례: `BaseEnemyController.DevMultiplyHealth():989`).
+### 5-1. 공유 웨이브 (6 Regular + 2 Elite) `[유지]`
+원본 그대로. `BaseStagePlayService.ProcessWavesAsync():125` 상속(PunchKing 경로), 6Reg+2Elite는 `SpawnEliteAndBossAsync:241`/`SpawnElitesForWaveAsync:268` 오버라이드. 서버 고정 구성 주입, 클라 임의 draw 금지.
 
-### 5-2. 라운드 시작 카드 (세트는 전 플레이어 공유) `[코드 검증 반영]`
-- ⚠️ 위키: **라운드별 터렛 카드 세트는 그 주차에 고정·전 플레이어 동일**. 무작위 풀이 아님.
-- 따라서 카드 후보 세트는 **서버가 내려준 주차 고정 세트**를 사용. 그 세트 내에서의 draw(어떤 1장)는 `matchSeed` 기반.
-- 기존 `CardManager`(`Core/Managers/CardManager.cs`) 큐/가중치 시스템 재사용하되, 풀을 Vanguard 고정 세트로 치환.
-- ⚠️ **메서드명 정정**(계획의 `GrantRandomCard`/`GetCardChoicesArray`는 미존재):
-  - 후보 N장 생성: `GeneratePunchKingCardChoices(int count):2319` (public, `SelectCardsByWeight` 경유) — 이걸 복제/재사용해 `GenerateVanguardCardChoices` 작성.
-  - 랜덤 1장: `GetRandomArkCard(ECardType):142` / `GetRandomArkCardFiltered(ECardType, Func):175`.
-  - 선택 적용: `SelectCard(int choiceIndex):3290`(`CurrentChoices[idx]` 읽음) → 내부 `ApplyCardEffect():3531`.
-  - 라운드별 초기 선택 루프는 **서비스가** 구동(`PunchKingStagePlayService.ShowInitialCardSelectionsAsync():138` — 라운드마다 `GeneratePunchKingCardChoices` + `Show<CardSelectionUI>` + `WaitUntil` 패턴). Vanguard도 동일 패턴.
-  - 사전 적용/초기화: `ApplyPreBattleCardEffects():1063`, `ClearInGameCardData():1023`, `SetPreserveInitialSelection(bool)`.
-- 뽑은 카드(라운드, cardId)를 `Recorder`에 기록 → 클론 재현 가능.
+**적 스탯 티어 스케일링 / 텔레포트 시 증가** — 원본 §5-1 코드 검증 내용 유지: `BuildStageData`에서 티어별 `stageHpCoefficient/stageAtkCoefficient` 주입(`ApplyStageAndWaveCoefficients:1191` 자동 전파), 텔레포트 증가는 `TeleportShieldSkill.ActivateTeleportShieldAsync():134`에서 `FinalAttackDamage/FinalMaxHealth/CurrentHealth *= x`.
 
-### 5-3. Adversity Boost (20/40/60초)
+### 5-2. 라운드 시작 카드 `[유지]`
+원본 §5-2 유지. `GeneratePunchKingCardChoices(int):2319` 복제 → `GenerateVanguardCardChoices`, 초기 선택 루프는 `PunchKingStagePlayService.ShowInitialCardSelectionsAsync():138` 패턴. 풀은 서버 시즌 고정 세트(명세 §10-2). draw 무작위는 `match_seed` 기반 `System.Random`.
+
+### 5-3. 보너스 카드 (20/40/60초) `[로직 반전 수정 C8]`
+기획서(인게임 §5)·명세 13-3 확정 조건: **"내 필드 적 개체수 < 상대(고스트) 필드 적 개체수"** = 내가 더 잘 막고 있을 때 보상.
+
 ```csharp
-private void CheckAdversityBoost()
+private void CheckBonusCard()
 {
     foreach (float mark in new[] { 20f, 40f, 60f })
     {
-        if (_elapsedTime >= mark && !_checkedBoostTimes.Contains(mark))
+        if (_elapsedTime >= mark && !_checkedBonusTimes.Contains(mark))
         {
-            _checkedBoostTimes.Add(mark);
-            if (_enemyManager.AliveEnemyCount > _ghostPlayer.CurrentAliveCount)
-                GrantVanguardBoostCard(); // GeneratePunchKingCardChoices/GetRandomArkCardFiltered 재사용 (GrantRandomCard 미존재)
+            _checkedBonusTimes.Add(mark);
+            // ★ 수정: 원본은 (내 적수 > 고스트 적수)로 부등호가 반대였음
+            if (_enemyManager.AliveEnemyCount < _ghostSim.CurrentAliveCount)
+                GrantVanguardBonusCard(); // GetRandomArkCardFiltered / GenerateVanguardCardChoices
         }
     }
 }
 ```
-- `EnemyManager.AliveEnemyCount` 기존 프로퍼티 재사용 ✅ 확인(`EnemyManager.cs:107`).
-- ⚠️ `GrantRandomCard`는 미존재 → 5-2의 실제 메서드(`GetRandomArkCardFiltered`/`GeneratePunchKingCardChoices`) 사용. Combo/T3 Chain 풀은 `Func<CardDataSO,bool>` 필터로 한정.
-- v1 점수모델에선 고스트 적 수가 다른 시드 기준 → 체감/연출용 (모델 A 트레이드오프).
+- 보너스 풀 = `CardData(해당 유닛) − 시즌 배정 8장`(명세 10-3). 서버가 풀 소속·`match_seed` 산출을 재검증(풀 외/8장 거부).
+- 즉석 시뮬 모델에서는 고스트 적수가 **동일 시드 결정 시뮬값**이라 원본 v1의 "다른 시드라 체감용" 트레이드오프가 사라진다(정확 비교 가능). ✅ 개선점.
+- 패스(980 다이아) 구매 시 매 라운드 시작 무작위 활성 카드 1장 추가(기획서 인게임 §5).
 
-### 5-4. Berserk Mode (60초 — 적 CC 면역) `[코드 검증 반영]`
-- **실제 가드 지점**: 디버프는 `BaseEnemyController.ApplyDebuff(EDebuffType, ...):1870` → `DebuffController.ApplyDebuff():164`. 면역 판정이 `DebuffController.cs:177-201`에 이미 있음:
-  1. `_cachedPunchKingBoss.IsDebuffImmune(debuffType)` — **런타임 면역 훅**(시간창 면역의 정확한 선례)
-  2. `EnemyData.immunDebuffTypes` 정적 면역 리스트(`:189-200`)
-- → Berserk(60s) CC 면역은 `IsDebuffImmune`와 동형의 **런타임 면역 플래그/메서드를 적 컨트롤러에 추가**하고 `DebuffController.cs:177` 근처에서 체크. Berserk 창 동안 ON.
-- CC로 막을 디버프 타입은 `EDebuffType`의 컨트롤 계열(`Paralysis`/`Slow`/`Overload` 등) — `IsControlDebuff` 헬퍼로 분류.
+### 5-4. 1차 광폭화 (60초 — 적 CC 면역) `[유지, 명칭 정정]`
+기획서 명칭은 "1차 광폭화". 구현은 원본 §5-4 유지: `DebuffController.ApplyDebuff():164` 면역 체크부(`:177-201`)에 런타임 면역 플래그 추가(`IsDebuffImmune` 동형). CC 계열(`Paralysis`/`Slow`/`Overload`)을 `IsControlDebuff`로 분류해 60초 창 동안 무효.
+
+### 5-5. 120초 페이즈 — 2차 광폭화(적 이동속도 증가) `[확정 C5]`
+최신 기획서(플로우·인게임)와 최신 API 명세(13-2)가 **둘 다 "120초 = 2차 광폭화 = 적(꿈틀이) 이동속도 증가"**로 일치. 원본 계획 §5-5와 위키(원작 FTD)의 "Termination = 양측 요새 -1000 HP/s 드레인"은 **구버전 사양 → 제거**한다. (WiggleDefender는 드레인 대신 이동속도 증가로 변경했고, 따라야 할 두 최신 소스가 합의돼 있으므로 확정.)
+
 ```csharp
-// 60초 경과 시 VanguardManager 또는 StagePlayService가 Berserk 플래그 ON (per-frame 체크는 10장 참조)
-// DebuffController.ApplyDebuff 면역 체크부에 추가:
-if (IsControlDebuff(debuffType) && _owner.IsVanguardBerserkImmune) return; // CC 무효
+// 2차 광폭화 = 이동속도 증가: 적 컨트롤러 이동속도 배율 ON.
+// 60초 1차(CC 면역)와 동일한 per-frame 플래그 게이트(VanguardManager.Update에서 120s 도달 시 ON).
+// 적용 지점: 적 컨트롤러 이동속도 산출부에 배율 곱(보정 이동속도와 동일 경로 — §5-0과 합산은 가산 원칙 검토).
+```
+> 드레인이 제거되므로 **원본 §5-6 칩 #4(인터벌 회복)의 "120초 후 회복 비활성" 가드는 명분이 약해진다.** 위키의 그 가드는 드레인 상쇄 방지용이었음. → 회복을 120초 후에도 유지할지 비활성할지는 밸런스 결정(미세, 기획 확인 권장). 코드상 가드는 플래그 한 줄이라 추후 토글 가능.
+
+### 5-6. 요새 칩 효과 (칩 #4 회복 / 칩 #5 면역) `[유지]`
+원본 §5-6 유지. 칩 #5(70% 이하 피해 면역, 위키 = 3/4.5/6초) = `EChipEffectType.BunkerCriticalImmunity(204)` + `CheckAndTriggerImmunity()` 재활용. 칩 #4(10초마다 4/6/8% 회복, 위키 확인) = `BaseController.Update():33`에 10초 누적기 + `Heal()`. 120초 페이즈가 이동속도 증가로 확정되어 드레인이 없으므로 `_elapsedTime<120f` 회복 가드는 필수 아님(§5-5 참조, 밸런스 토글로 보류).
+
+### 5-7. 칩 #6 (치명타 시 최대HP% 추가피해) `[유지]`
+원본 §5-7 유지. `CriticalMaxHealthDamage(403)` + `ProcessCriticalMaxHealthDamage():384` 미러링, 가산 원칙(`totalPercentageBonus` 합산).
+
+### 5-8. 라운드 승패 판정 + 점수 `[전면 개정 C6]`
+원본의 가중합 점수식(생존시간·HP·처치수 → cloneScore 비교)은 **폐기**. 확정 규칙은 라운드 단위 BO3 승패 판정이다(명세 13-1, 인게임 기획서 §6):
+
+```
+라운드 승패 (무승부 없음 — C10 확정):
+  1순위 스테이지 클리어: 먼저 전체 적 처치한 쪽 승
+  2순위 생존: 한쪽 먼저 요새 파괴(패배) 시 생존자 승
+  동시 패배 타이브레이크(단일 승자 강제):
+    ① 남은 적 개체수 적은 쪽 → ② 남은 적 체력 총합 적은 쪽
+    → ③ 그래도 동일하면 미세 지표(최근 처치/요새 피해 시각)로 단일 승자,
+       최종 fallback은 match_seed 기반 결정(동전던지기 대체) — 무승부로 두지 않음
+매치: 3라운드 중 2승. 2승 확정돼도 3라운드 진행(보너스 점수 영향).
+  매치 1:1:1·동률 상황도 동일 원칙으로 단일 승자(무승부 없음).
 ```
 
-### 5-5. Termination Mode (120초 — 양측 -1000 HP/s) `[코드 검증 반영]`
+클라가 서버에 보내는 라운드 데이터(명세 7-1): `result(CLEAR/SURVIVE/LOSE)`, `clear_time`, `survival_time`, `enemies_left`, `enemy_hp_left`, `opp_enemies_left`/`opp_enemy_hp_left`(방안 B일 때만 — 방안 A면 서버가 자체 벤치마크 보유하므로 불필요), `bonus_cards[]`, `turret_damage[]`. **점수(point_delta)는 서버가 점수표(VanguardScoreData)로 산정** — 클라는 산정하지 않고 `score_breakdown`을 표시만 한다.
+
+> **무승부 없음 확정(C10)**: 구 기획서의 "③ 모든 조건 동일 시 무승부 처리"는 폐기. 명세 §13-1/§3 "무승부 없음"을 따라 ③에서 단일 승자를 강제 산출한다(승패 정산은 서버 권위 — 위 규칙은 서버 판정 사양, 클라는 결과 표시).
+
+---
+
+## 6. 클론 저장 — "내가 남의 클론이 되는 과정" `[전면 개정 C1]`
+
+원본의 `VanguardReplayData`(HP 커브/적수 커브/카드 이벤트 녹화)는 **폐기**. 클론은 **loadout만 저장**한다(명세 2-3/2-4, 매칭 기획서 2-1/2-2).
+
 ```csharp
-if (_elapsedTime >= 120f)
+public class VanguardLoadoutSnapshot   // 클론 저장 단위 + 고스트 시뮬 입력
 {
-    float drain = 1000f * Time.deltaTime;
-    _baseSystemManager.CurrentBase.TakeDamage(drain); // 내 요새
-    _ghostPlayer.ApplyTerminationDrain(drain);         // 고스트 요새도 동일 감소
+    public int[] turretSlots;          // 9터렛 편성
+    public ChipLoadout chips;          // 장착 칩
+    public int atkBoostLevel;          // 전투력 강화 레벨
+    // ※ HP/적수 커브·카드 이벤트 등 전투 기록은 저장하지 않음
 }
 ```
-- 요새 메서드 실측: `BaseController.TakeDamage(float damage, BaseEnemyController attacker=null):203`, `CurrentHealth`(프로퍼티명 — `CurrentHp` 아님, `:63`), `MaxHealth:79`, `Heal(float):330`, `DestroyBase():361`.
-- ⚠️ **드레인은 `TakeDamage` 우회 권장**: `TakeDamage`는 `_isImmune`/`_moduleImmunityCharges`/회피/`ApplyDamageReduction`(`:226/248/268/284`)로 **조기 리턴·감산될 수 있다**. 칩 #5 면역 중엔 Termination 드레인이 무효화돼 버림. → 확정 드레인은 `CurrentHealth` 직접 감산 + `GameEventType.BaseDamaged` dispatch + `CurrentHealth<=0 → DestroyBase()` 경로(`:287-299` 형태)를 별도 메서드로. (기획상 Termination은 면역 무시 드레인이어야 함)
-- ⚠️ `_baseSystemManager.CurrentBase` 프로퍼티명은 `BaseSystemManager`(`Core/Managers/BaseSystemManager.cs`) 실 API로 확인 후 사용(요새 컨트롤러 보유 매니저).
+- **저장 트리거**: Live Clone = 최초 진입/편성 변경/칩 변경 시 `/vanguard/loadout/save`로 갱신(이전 스냅 삭제). Record Clone = 전투 시작(인게임 진입) 시점 스냅(명세 2-4, 매칭 기획서 2-2).
+- 결과 제출이 별도 replay를 만들지 않는다(명세 7-1 비고 8).
 
-### 5-6. 요새 칩 효과 (칩 #4 회복 / 칩 #5 면역) `[코드 검증 반영]`
-- **칩 #5 (70% 이하 피해 면역) — 기존 효과와 거의 동일**: `EChipEffectType.BunkerCriticalImmunity(=204)` + `BaseController.ChipEffect.cs:272 CheckAndTriggerImmunity()` 이미 존재. `HealthRatio*100 < effect.effectValue`(임계 %)면 `_isImmune=true; _immunityEndTime = Time.time + effect.subEffectValue;`(면역 지속) + 임계 1회성 기록(`_immunityThresholdsTriggered`). `TakeDamage:245`에서 호출, 만료는 `UpdateImmunityState()`(`Update()` 경유). → Vanguard 칩 #5는 **이 효과 데이터를 그대로 쓰거나**(70%/3·4.5·6s) 신규 `EChipEffectType` 한 줄 추가 후 이 분기 복제.
-- **칩 #4 (10초마다 4/6/8% HP 회복) — 신규 인터벌 훅 필요**: 기존 요새 회복은 전부 이벤트성(`BunkerHealOnKill=208`/`BunkerHealOnEliteBossKill=209`/`BunkerHealOnCardSelection=207`)이라 **시간 인터벌 회복은 없음**. → `BaseController.Update()`(`:33`)에 10초 누적기 추가해 `Heal(MaxHealth * pct)` 호출. ⚠️ 위키 정확 — **Termination Phase(120s 후) 회복 비활성**: 틱 적용 시 `_elapsedTime < 120f` 가드 필수(드레인 상쇄 금지).
-- Vanguard 칩 6종 효과 enum은 `Core/Data/Enums/ChipEnums.cs`의 `EChipEffectType` 끝에 추가. 적용 경로: `ChipEffectManager.ApplyChipEffect():407` → `_globalChipEffects`/`_unitChipEffects` 적재 → 소비처가 `GlobalChipEffects`(`:57`)/`UnitChipEffects`(`:52`)/`GetTotalEffectValue()`로 조회.
+### 6-1. 클론 vs 봇 vs 벤치마크 — 3개념 구분 (혼동 주의)
+세 가지는 서로 다른 층위다:
 
-### 5-7. 칩 #6 (치명타 시 최대HP % 추가피해) `[코드 검증 반영]`
-- **기존 효과 재활용 — 데미지 공식이 아니라 적 피격 시점에서 처리**: `EChipEffectType.CriticalMaxHealthDamage(=403)` / `CriticalPerMaxHealthDamage`(ChipEnums.cs:198) 이미 존재하고, 적용 메서드가 `BaseEnemyController.cs:384 ProcessCriticalMaxHealthDamage(isCritical, finalDamage, attackerUnitType)`. (대상 max-HP 참조가 필요해 데미지 공식이 아닌 적 컨트롤러 쪽에서 처리.) → Vanguard 칩 #6은 **이 경로를 미러링**(최대배율 2x/3x/4x를 `subEffectValue`로).
-- 데미지 파이프라인 자체는 가산(additive) 원칙 (CLAUDE.md): `DamageCalculationManager.CalculateDamageWithAdvancedFormula():170`의 `totalPercentageBonus`에 합산(`:182-185`), 절대 `finalDamage *= ...` 금지. `BaseAttackPower:45` 확인.
-
-### 5-8. 승패 + 점수
-```csharp
-float myScore = survivalTime              * W_TIME
-              + (fortressHpRemaining / fortressMaxHp) * W_HP
-              + enemiesKilled             * W_KILL;
-// 서버가 myScore vs cloneScore 비교 → 승패 + pointDelta (상대 랭크 보정)
-```
-종료 조건: 내 요새 HP 0 / 모든 적 처치 / 시간 종료.
-
----
-
-## 6. 클론 녹화 — "내가 남의 클론이 되는 과정"
-
-모든 플레이어의 전투를 녹화해야 클론 풀이 채워진다.
-
-```csharp
-public class VanguardReplayData
-{
-    public int   matchSeed;
-    public VanguardLoadoutSnapshot loadout;     // 9터렛 + 칩 + 강화레벨
-    public List<HpSample>    fortressHpCurve;    // 0.5초 간격
-    public List<CountSample> aliveCountCurve;
-    public List<CardEvent>   cardEvents;         // (라운드, cardId) — v2 재현용
-    public VanguardResult    finalResult;        // 생존시간, 잔여HP, 점수, 승리여부
-}
-```
-
-- 크기: 수 KB (120초 × 2샘플/초). 전투 종료 시 `/vanguard/match/result`에 함께 업로드.
-- 서버는 플레이어의 "이번 주 클론"으로 저장 (최고점 유지 or 최신 유지 — 정책 결정 필요).
-- **시즌 초기 봇 클론 시드 데이터**(개발자 제작 더미 replay)를 미리 주입 → 매칭 공백 방지.
-
----
-
-## 7. 치팅 방지
-
-클라이언트가 점수를 제출하므로 서버 검증 필수.
-
-```
-1. 점수 상한 검증: 이론상 불가능한 점수(시간/HP/처치수 한계) 거부
-2. 체크섬: loadout + seed + result 해시 검증
-3. 커브 정합성: fortressHpCurve 단조성, 비정상 점프 탐지
-4. replayData 보관 → 의심 계정 사후 재시뮬 감사
-```
-- 기존 `AntiCheatGuard.cs` 패턴 연계.
-- 완전 서버 권위(모델 B)가 아니면 100% 방어 불가하나, 모바일 비대칭 PvP 표준 수준.
-
----
-
-## 8. 인게임 서버 API
-
-```
-POST /vanguard/match/result
-  req: { matchId, myScore, replayData, checksum }
-  → { win, pointDelta, newScore, newTier, rewards }
-```
-> 매칭/조회 API는 아웃게임 문서 11장 참조.
-
----
-
-## 9. 재사용 vs 신규
-
-| 기능 | 처리 | 대응 RaceTower |
+| 개념 | 무엇 | 누가/어떻게 만드나 |
 |---|---|---|
-| 적 스폰/이동/HP | ✅ `EnemyManager`(`AliveEnemyCount:107`, `StartWaveSpawnAsync:188`) + 풀(`PoolManager`) 재사용 | 동일 |
-| 요새 HP/피격/면역 | ✅ `BaseController`(`TakeDamage:203`/`CurrentHealth:63`/`Heal:330`/`CheckAndTriggerImmunity` in `.ChipEffect.cs:272`) / `BaseSystemManager` 재사용 | 동일 |
-| 카드 | ✅ `CardManager` 재사용 + Vanguard 풀 분기 (`GeneratePunchKingCardChoices:2319` 복제) | 동일 |
-| 칩 효과 | ✅ `ChipManager` / `ChipEffectManager`(`ApplyChipEffect:407`) 재사용 + 신규 칩 6종 enum(`ChipEnums.cs EChipEffectType`) 추가. 칩 #5=`BunkerCriticalImmunity(204)`·칩 #6=`CriticalMaxHealthDamage(403)` 기존 재활용 | - |
-| 데미지 계산 | ✅ `DamageCalculationManager`(`BaseAttackPower:45`, `CalculateDamageWithAdvancedFormula:170`, 가산 `totalPercentageBonus:182`) 재사용 | 동일 |
-| 웨이브 진행 | ✅ **`BaseStagePlayService.ProcessWavesAsync:125` 상속**(PunchKing 경로) — StageManager private 버전 아님 | 동일 |
-| 스테이지 데이터 변환 | 🆕 `VanguardStagePlayService.BuildStageData()` (RaceTower와 동일 책임) | `RaceTowerStagePlayService` |
-| **전투 플로우 제어** | 🆕 `VanguardStagePlayService` (`StageServices/` 폴더, StageManager가 인스턴스화) | `RaceTowerStagePlayService` |
-| **상대 고스트 재생** | 🆕 `VanguardGhostPlayer` (전투 로직 없음) — PvP 고유, StagePlayService 내부 | (없음) |
-| **녹화** | 🆕 `VanguardReplayRecorder` — PvP 고유, StagePlayService 내부 | (없음) |
-| **시드 RNG** | 🆕 매치 전용 `System.Random` | - |
-| **스플릿 카메라(v2)** | 🆕 `cullingMask` 레이어 분리 | - |
+| **실제 클론**(Live/Record) | 진짜 유저의 loadout 스냅샷 | **클라가 유저 정보(loadout)를 서버로 전송 → 서버가 저장**. Live=loadout/save, Record=전투 시작 시점. ← 평소 상대는 대부분 이것 |
+| **봇 클론** | 합성 더미(실제 유저 아님) | 시즌 초반 매칭 공백 메우기용 fallback(명세 §11 탐색 Live→Record→완화→**봇**). **제작 주체는 명세 §17 TBD** — 유저 전송으로 만드는 게 아님 |
+| **벤치마크** | 상대(클론이든 봇이든)의 **전투 성적 타임라인** | loadout으로 시뮬한 결과(alive@20/40/60·클리어시각·잔여). §4 방안 A(서버)/B(클라)에서 산출 |
 
-> `VanguardStagePlayService`는 RaceTower처럼 "데이터 변환 + 전투 플로우 제어" 책임을 가진다. RaceTower와 다른 점은 고스트 재생/녹화 2개를 내부에 추가로 들고 있다는 것뿐. 위치(`StageServices/`)·인스턴스화 방식(StageManager 내부 `_vanguardStagePlayService`)은 동일.
+> ✅ "클라가 유저 정보를 서버로 전송해 만든다"는 **실제 클론(Live/Record)** 생성 방식이 맞다. 다만 **봇은 그 경로가 아니다** — 봇은 합성 더미이고 제작 주체가 아직 미정(§17). 그리고 **벤치마크는 클론/봇 자체가 아니라 그 loadout을 시뮬한 성적**이라는 점이 핵심.
+> ⚠️ 명세 §11엔 봇이 fallback으로 있지만, **매칭 기획서(Notion)엔 봇 언급이 없고** 시즌 초반 공백은 **Record Clone 유지(브론즈 하위 5%/10%, 명세 §16)**로 해결한다. → 봇을 별도로 둘지, Record 유지로 충분한지 자체가 확인 항목(§13-2에 추가).
 
 ---
 
-## 10. 핵심 클래스 스켈레톤
+## 7. 치팅 방지 `[전면 개정 C2]`
 
-> ⚠️ **per-frame 틱 위치 정정 (코드 검증)**: `VanguardStagePlayService`는 **async 전용**이라 매 프레임 `Update`가 없다(`BaseStagePlayService`는 MonoBehaviour 아님). 따라서 아래 `UpdateBattle(dt)`를 "GameUI Update 루프에서 호출"하는 대신, **MonoBehaviour인 `BaseManager.Update()`** 에서 구동해야 한다. 선례: `GameStatisticsManager.Update():113`가 `_gameElapsedTime += Time.deltaTime` 누적 후 페이즈 체크(`PunchKingDungeonManager.CheckEnrageCondition():592`가 `Time.time - _gameStartTime >= _enrageTimeSeconds` 비교). → **20/40/60/120s 페이즈 체크는 `VanguardManager.Update()`(또는 전용 MonoBehaviour)** 에 두고, 거기서 `StagePlayService`의 상태/플래그를 갱신. `BaseStagePlayService`는 라운드 진행(async)만 담당.
+원본의 "replayData 보관 후 사후 재시뮬 감사"는 모델 변경으로 핵심이 바뀐다. 확정 방어선(명세 §14):
+
+```
+1. battle_id 멱등: RESOLVED 재제출은 저장값 반환, EXPIRED 7206
+2. 내 결과 검증: 점수 상한 + checksum(loadout+seed+result 해시) + 이론상 불가 점수 거부
+3. 상대 벤치마크는 서버 권위:
+   - 방안 A: 서버가 벤치마크를 직접 보유 → 비교 자체가 서버 내부(클라 opp_* 조작 불가)
+   - 방안 B: 서버가 상대 loadout 재시뮬해 클라 opp_*와 대조(불일치 7207)
+4. 보너스 카드: 풀 소속 + match_seed 산출 검증(풀 외/8장 거부)
+5. 매칭 어뷰징: 최근 5회 원본 UID 회피 / 랭크 파밍: 자격 컷 + highest_tier_this_season
+```
+> **방안 A의 치팅 방어 이점**: 상대 벤치마크가 서버 내부 값이라 클라가 상대 성적을 위조할 여지가 원천 차단된다(opp_* 보고 자체가 없음). 방안 B는 클라/서버 재시뮬 동치성에 검증이 의존하므로 허용 오차 밴드 협상 필요. → 치팅 방어 관점에서도 A가 유리.
+
+---
+
+## 8. 인게임 서버 API `[개정 C7]`
+
+```
+POST /vanguard/match/find    → { battle_id, match_seed, stage_modifier, opponent.loadout }  // 매칭+세션
+POST /vanguard/battle/result                                                                  // 결과 제출
+  req: { battle_id, rounds[ {result, clear_time, survival_time, enemies_left, enemy_hp_left,
+                             opp_enemies_left, opp_enemy_hp_left, bonus_cards[], turret_damage[]} ],
+         match_result{my_round_wins, opp_round_wins}, replay{match_seed}, checksum }
+  → { win, score_breakdown, new_tier, tier_changed, score_in_division, division_threshold,
+      chaos, chaos_capped, win_streak, lose_streak, reward_granted, extra_reward_count,
+      rewards, duel_rewards }
+```
+> 듀얼은 `/vanguard/duel/confirm`이 battle_id를 발급(match_type=DUEL). 매칭/경제 API는 아웃게임 문서 + 명세 §3~9 참조.
+> ⚠️ 표기 통일: **`duel`이 정식 표기.** 명세/코드에 남은 `dual`(재화 `dual_token`, match_type `DUAL`)은 **`duel`로 정정 요청**(`duel_token`, `DUEL`).
+
+**클라 응답 매핑 주의**: `score_breakdown`은 고정 필드 구조(base/swift_win/comeback_win/win_streak/dual_multiplier/loss_penalty/point_delta)다. 클라 티어 진행 팝업은 `(labelKey, delta)` 가변 리스트(`VanguardTierProgressData.scoreEntries`)를 표시하도록 설계돼 있으므로, **둘 중 하나로 합의 필요**: ① 서버가 `score_entries:[{label_key,delta}]` 병행 제공(권장), 또는 ② 클라에 고정 필드→로컬라이즈 키 매핑 레이어 추가.
+
+---
+
+## 9. 재사용 vs 신규 `[개정]`
+
+| 기능 | 처리 | 비고 |
+|---|---|---|
+| 적 스폰/이동/HP | ✅ `EnemyManager`/`PoolManager` 재사용 | 유지 |
+| 요새 HP/피격/면역 | ✅ `BaseController`/`BaseSystemManager` 재사용 | 유지 |
+| 카드 | ✅ `CardManager` + Vanguard 풀 분기 | 유지 |
+| 칩 효과 | ✅ `ChipManager`/`ChipEffectManager` + 신규 칩 6종 enum | 유지 |
+| 데미지 계산 | ✅ `DamageCalculationManager`(가산) | 유지. **속성 내성/약점 보정 적용부 추가**(§5-0) |
+| 웨이브 진행 | ✅ `BaseStagePlayService.ProcessWavesAsync:125` 상속 | 유지 |
+| 스테이지 데이터 변환 | 🆕 `VanguardStagePlayService.BuildStageData()` + **라운드별 보정 주입** | C4 |
+| 전투 플로우 제어 | 🆕 `VanguardStagePlayService` | 유지 |
+| **상대 고스트 시뮬** | 🆕 `VanguardGhostSim` (~~재생~~ → **결정적 시뮬**) | **C1·C3 — 방안 A/B 결정 필요(§4)** |
+| ~~녹화~~ | ❌ **제거** (`VanguardReplayRecorder` 불필요 — loadout만 저장) | C1 |
+| 시드 RNG | 🆕 매치 전용 `System.Random(match_seed)` | 유지 |
+| **결정적 고스트 시뮬**(방안 B 한정) | 🆕 선행 점검/리팩토링 (UnityRandom·Time.deltaTime·float 순서) | C2 — 방안 B 채택 시 리스크 |
+| 스플릿 카메라(v2) | 🆕 `cullingMask` 레이어 분리 | 유지 |
+
+> CPS 칩 등급 점수(매칭 기획서·명세 §11): 희귀1/서사3/전설8/신화10/**초월20**(원본 17 → **20 정정 C9**). 단 CPS는 서버 내부 지표라 클라 구현 불요.
+
+---
+
+## 10. 핵심 클래스 스켈레톤 `[개정 C1·C3·C4]`
+
+per-frame 페이즈 체크는 `VanguardManager.Update()`(MonoBehaviour)에서 구동(원본 §10 정정 유지). 라운드 진행은 `BaseStagePlayService`(async).
 
 ```csharp
-// VanguardStagePlayService.cs — StageManager 내부 인스턴스화, BaseStagePlayService 상속 (PunchKingStagePlayService 패턴)
-// 라운드 진행은 async. 시간 페이즈 체크(UpdateBattle)는 VanguardManager.Update()가 호출.
-public class VanguardStagePlayService : BaseStagePlayService // ← PunchKing과 동일 베이스
+public class VanguardStagePlayService : BaseStagePlayService
 {
-    private EnemyManager           _enemyManager;
-    private CardManager            _cardManager;
-    private BaseSystemManager      _baseSystemManager;
-    private VanguardGhostPlayer    _ghostPlayer;
-    private VanguardReplayRecorder _recorder;
+    private EnemyManager        _enemyManager;
+    private CardManager         _cardManager;
+    private BaseSystemManager   _baseSystemManager;
+    private VanguardGhostSim    _ghostSim;   // ★ 재생 Recorder → 결정적 시뮬
 
     private System.Random _matchRng;
     private float _elapsedTime;
-    private bool  _berserkActive;
-    private readonly HashSet<float> _checkedBoostTimes = new HashSet<float>();
+    private int   _currentRound;
+    private bool  _berserkPhase1, _berserkPhase2;
+    private readonly HashSet<float> _checkedBonusTimes = new();
 
-    private VanguardMatchData _match; // payload 보관 (mode/processor/onComplete 접근)
+    private VanguardMatchData _match;
 
     public async UniTask StartVanguardBattleAsync(VanguardMatchData match, CancellationToken token)
     {
-        _match = match;                                  // Session Context payload
+        _match = match;
         _matchRng = new System.Random(match.matchSeed);
-        _ghostPlayer = new VanguardGhostPlayer();
-        _ghostPlayer.LoadReplay(match.opponentClone);
-        _recorder = new VanguardReplayRecorder();
-        _recorder.BeginRecording(match.matchSeed, GetMyLoadoutSnapshot());
-
-        await RunRoundsAsync(token); // 기존 ProcessWavesAsync 골격 + Vanguard 분기
+        _ghostSim = new VanguardGhostSim();
+        _ghostSim.Init(match.opponentLoadout, match.matchSeed, match.stageModifiers); // loadout 시뮬
+        // ※ Recorder 없음 — 결과는 라운드 집계로 생성
+        await RunRoundsAsync(token); // 라운드별 stageModifiers[r] 적용
     }
 
-    public void UpdateBattle(float dt) // VanguardManager.Update()가 호출 (per-frame 틱 위치 정정 참조)
+    public void UpdateBattle(float dt) // VanguardManager.Update()가 호출
     {
         _elapsedTime += dt;
-        _ghostPlayer.UpdateGhost(dt);
-        _recorder.Sample(_elapsedTime,
-            _baseSystemManager.CurrentBase.CurrentHealth,
-            _enemyManager.AliveEnemyCount);
-
-        CheckAdversityBoost(); // 20/40/60s
-        CheckBerserk();        // 60s
-        CheckTermination(dt);  // 120s
+        _ghostSim.Tick(dt);            // 방안 A: 서버 타임라인 재생 / 방안 B: 클라 결정적 시뮬 진행
+        CheckBonusCard();              // 20/40/60s (내 적수 < 고스트 적수)
+        CheckBerserkPhase1();          // 60s  CC 면역
+        CheckBerserkPhase2();          // 120s 이동속도↑
     }
 
-    // 종료 시: Strategy(processor)로 보상/랭킹 산출, payload 콜백으로 결과 송신
-    private void OnBattleEnd()
+    private void OnRoundEnd(int round)
     {
-        var result = BuildResult(_recorder, _elapsedTime); // 생존시간/잔여HP/처치수/replay
-        var reward = _match.processor.CalculateReward(result);       // Match/Duel별
-        result.reward = reward;
-        _match.onComplete?.Invoke(result);  // = VanguardService.SubmitResultAsync 트리거
+        var rr = BuildRoundResult(round, _enemyManager, _ghostSim); // 내 결과(+방안 B면 opp_*)
+        _roundResults.Add(rr);
+    }
+
+    private void OnMatchEnd()
+    {
+        var result = BuildMatchResult(_roundResults); // rounds[] + checksum
+        _match.onComplete?.Invoke(result);            // = SubmitBattleResultAsync
     }
 }
 ```
 
-```csharp
-// VanguardManager.cs — RaceTowerManager 조합 패턴 답습
-public class VanguardManager : BaseManager
-{
-    // 모드 전용 세이브 데이터 (Manager가 보유, 서브서비스와 공유)
-    private VanguardSaveData _saveData = new VanguardSaveData();
-
-    // 주입용 매니저 캐시
-    private ServerTimeManager _serverTimeManager;
-    private SaveDataManager   _saveDataManager;
-    private CurrencyManager   _currencyManager;
-
-    // 서브서비스 (POCO) — RaceTowerManager.StageService/ShopService... 패턴
-    public VanguardSeasonService  SeasonService  { get; private set; }
-    public VanguardLoadoutService LoadoutService { get; private set; }
-    public VanguardChipService    ChipService    { get; private set; }
-    public VanguardShopService    ShopService    { get; private set; }
-    public VanguardRankService    RankService    { get; private set; }
-
-    public override async UniTask InitializeAsync()
-    {
-        await base.InitializeAsync();
-
-        _serverTimeManager = GetManager<ServerTimeManager>();
-        _saveDataManager   = GetManager<SaveDataManager>();
-        _currencyManager   = GetManager<CurrencyManager>();
-
-        // new + Initialize(의존성 주입) — RaceTowerManager와 동일
-        SeasonService = new VanguardSeasonService();
-        SeasonService.Initialize(_saveData, _serverTimeManager);
-
-        LoadoutService = new VanguardLoadoutService();
-        LoadoutService.Initialize(_saveData, _saveDataManager);
-
-        ChipService = new VanguardChipService();
-        ChipService.Initialize(_saveData, _saveDataManager); // 영구칩과 분리된 시즌 인벤토리
-
-        ShopService = new VanguardShopService();
-        ShopService.Initialize(_saveData, _currencyManager, _saveDataManager, _serverTimeManager);
-
-        RankService = new VanguardRankService();
-        RankService.Initialize(_saveData);
-    }
-
-    public override void Cleanup()
-    {
-        SeasonService = null;
-        LoadoutService = null;
-        ChipService = null;
-        ShopService = null;
-        RankService = null;
-        base.Cleanup();
-    }
-
-    // 전투 진입 트리거 — 서버 매칭은 VanguardServerService 경유
-    public async UniTask<VanguardMatchData> FindMatchAsync(EVanguardMode mode)
-    {
-        var service = GetManager<ServerManager>().VanguardServerService;
-        var popup = ServerLoadingPopupUI.Show(
-            LocalizationManager.GetLocalizedText("vanguard_matching"));
-        try { return await service.RequestMatchAsync(mode, RankService.Score, RankService.Tier); }
-        finally { ServerLoadingPopupUI.Hide(); }
-    }
-}
-```
-
-### 스플릿뷰 카메라/UI 구성 (GameScene 재활용)
-
-```csharp
-// VanguardBattleUI.cs — 인게임 스플릿뷰. UIManager.Show<VanguardBattleUI>()로 띄움.
-// 위(Self)=내 전투 HUD, 아래(Ghost)=상대 고스트 재생 패널. 전투 월드는 1개뿐.
-public class VanguardBattleUI : UIBase
-{
-    [Header("Self (상단, 내 실제 전투)")]
-    [SerializeField] private Slider _selfFortressHp;
-    [SerializeField] private TextMeshProUGUI _selfAliveCount;
-
-    [Header("Ghost (하단, 상대 재생)")]
-    [SerializeField] private Slider _ghostFortressHp;
-    [SerializeField] private TextMeshProUGUI _ghostAliveCount;
-    [SerializeField] private VanguardGhostPanel _ghostPanel; // v2: 적 스프라이트 재생(선택)
-
-    // VanguardManager.Update() 또는 StagePlayService가 매 프레임 값만 밀어준다
-    public void Bind(float selfHp, int selfAlive, float ghostHp, int ghostAlive) { /* ... */ }
-}
-```
-
-```
-// 카메라 구성 — InGameModeVariant 패턴으로 GameModeType.Vanguard 분기
-//   기본 모드: 카메라 1대 풀스크린
-//   Vanguard : 메인 카메라 rect = 상단 0.5~1.0 (내 전투만 렌더)
-//              아래 0.0~0.5 = VanguardBattleUI의 Ghost 패널(UI) 영역
-//   ※ 아래는 "두 번째 카메라로 두 번째 월드를 렌더"하는 게 아니라 UI 패널.
-//     v2에서 고스트 적 스프라이트를 보여줄 때만 별도 cullingMask 카메라 추가 검토.
-```
-
-> 핵심: GameScene은 전투 월드 1개만 구동. 스플릿은 **메인 카메라 뷰포트를 상단으로 줄이고, 하단을 `VanguardBattleUI` 고스트 패널로 채우는** 레이아웃 변형. `InGameModeVariant`가 360모드에서 카메라를 바꾸듯, Vanguard 분기를 같은 자리에 추가한다.
+`VanguardManager`/스플릿뷰 UI 스켈레톤은 원본 §10 유지(서브서비스 조합, `VanguardBattleUI` 상/하 패널). `Bind`에 넘기는 ghost 값의 출처가 "녹화 재생"에서 "`_ghostSim` 시뮬값(방안 A=서버 타임라인 / B=클라 시뮬)"으로 바뀌는 것만 차이.
 
 ---
 
-## 11. CLAUDE.md 준수 체크리스트 (구현 시)
+## 11. CLAUDE.md 준수 체크리스트 `[유지 + 강화]`
 
-- [ ] 매니저 접근은 `Managers.Instance.GetManager<T>()` 만
-- [ ] 비동기는 UniTask + `Async` 접미사, `async void` 금지
-- [ ] 이벤트는 `EventManager` STATIC (GetManager 금지), `Cleanup()`에서 Unsubscribe
-- [ ] 시간은 `ServerTimeManager.NowUnscaled` (DateTime.Now 금지)
-- [ ] 랜덤은 `System.Random(matchSeed)` (UnityEngine.Random 금지)
-- [ ] 데미지 배율은 가산 방식 (곱연산 금지)
-- [ ] DataSheet SO 직접 수정 금지 → `{ClassName}Parser.cs`
-- [ ] 하드코딩 한/영 금지 → `LocalizationManager.GetLocalizedText()`
-- [ ] 신규 필드는 클래스 최상단 필드 영역 끝에 추가
+원본 체크리스트 유지. 모델 변경으로 **결정성 항목은 방안 B 채택 시 필수**가 됨:
+- [ ] (방안 B 한정) 고스트 시뮬 랜덤은 `System.Random(match_seed)`만 — `UnityEngine.Random` 금지 **(서버 재시뮬 검증 전제, 위반 시 7207)**
+- [ ] (방안 B 한정) 고스트 시뮬이 `Time.deltaTime` 가변 프레임에 의존하지 않도록 고정 틱화 검토
+- [ ] 공유 시나리오 부수 무작위(카드 draw 등)는 양안 공통 `match_seed` 기반
+- [ ] (나머지 매니저 접근/UniTask/EventManager/ServerTime/가산 데미지/Parser/로컬라이즈 항목 원본 유지)
 
 ---
 
-## 12. 검증된 인게임 구현 레퍼런스 (2026-05-31 코드 분석)
+## 12. 검증된 인게임 구현 레퍼런스 (2026-05-31 코드 분석) `[유지]`
 
-모든 경로 `Assets/_Project/1_Scripts/` 기준.
+원본 §12 표 전체 유지 — 코드 훅 매핑은 모델과 무관하게 유효하다. 단 아래 세 줄만 갱신:
 
-### 12-1. 메커니즘 → 실제 훅 지점 매핑
-
-| 메커니즘 | 실제 훅 (파일:라인) | 메모 |
+| 메커니즘 | 실제 훅 | 변경 |
 |---|---|---|
-| 전투 플로우 베이스 | `StageServices/BaseStagePlayService.cs` (`StartStageAsync:71`, `ProcessWavesAsync:125`, `OnBeforeStageStartAsync:110`) | PunchKing이 상속. Vanguard도 상속 |
-| 서비스 등록 | `StageManager.InitializeAsync():26-32` (필드 + `Initialize(this)`), 모드분기 `StartStageWithStageDataAsync():924-961` | `_vanguardStagePlayService` 추가 |
-| 6 Reg + 2 Elite | 오버라이드 `SpawnEliteAndBossAsync:241` / `SpawnElitesForWaveAsync:268` | 라운드 구성 주입 |
-| per-frame 페이즈(20/40/60/120s) | **`VanguardManager.Update()`**(MonoBehaviour). 선례 `GameStatisticsManager.Update():113`, `PunchKingDungeonManager.CheckEnrageCondition():592` | 서비스(async)엔 Update 없음 |
-| 적 티어 스케일 | `BuildStageData`에서 티어별 `stageHpCoefficient/atkCoefficient` → `ApplyStageAndWaveCoefficients:1191` 자동 전파 | 컨트롤러 수정 0 |
-| 텔레포트 시 스탯↑ | `TeleportShieldSkill.ActivateTeleportShieldAsync():134` | `FinalAttackDamage/FinalMaxHealth/CurrentHealth *= x` |
-| Berserk CC 면역(60s) | `DebuffController.ApplyDebuff():164` 면역체크(`:177-201`)에 런타임 플래그 추가. 선례 `IsDebuffImmune` | `EnemyData.immunDebuffTypes`는 정적면역 |
-| Termination 드레인(120s) | `BaseController.CurrentHealth` 직접 감산 경로(면역 우회) | `TakeDamage`는 면역 시 무효화됨 |
-| 칩 #4 10s 회복 | `BaseController.Update():33`에 인터벌 누적기 + `Heal()` | `_elapsedTime<120f` 가드 |
-| 칩 #5 면역 | `EChipEffectType.BunkerCriticalImmunity(204)` + `BaseController.ChipEffect.cs:272 CheckAndTriggerImmunity()` | 기존 재활용 |
-| 칩 #6 크리→maxHP% | `EChipEffectType.CriticalMaxHealthDamage(403)` + `BaseEnemyController.cs:384 ProcessCriticalMaxHealthDamage()` | 기존 재활용 |
-| 카드 후보 생성 | `CardManager.GeneratePunchKingCardChoices(int):2319` (복제) | `GrantRandomCard` 미존재 |
-| 카드 초기선택 루프 | `PunchKingStagePlayService.ShowInitialCardSelectionsAsync():138` 패턴 | Show+WaitUntil |
+| ~~녹화 Recorder~~ | ~~StagePlayService 내부~~ | ❌ 제거(loadout만 저장) |
+| 상대 고스트 | `VanguardGhostSim`(방안 A=서버 타임라인 재생 / B=결정적 시뮬) | 재생 → 벤치마크, 방안 A/B 결정(§4) |
+| 라운드별 보정 | `BuildStageData` + 데미지 속성 보정부 | 신규(§5-0) |
 
-### 12-2. 신규 enum 추가 위치
-
-- 칩 효과 6종: `Core/Data/Enums/ChipEnums.cs`의 `EChipEffectType` 끝에 추가.
-- 데미지 소비처: 데미지계 칩 → `DamageCalculationManager`, 요새계 칩 → `BaseController.ChipEffect.cs`, 적 피격계 칩 → `BaseEnemyController`. (`ChipEffectManager`가 `GlobalChipEffects`/`UnitChipEffects`로 노출, 소비처가 조회)
-
-### 12-3. 신규 클래스 생성 위치
-
+### 신규 클래스 생성 위치
 | 클래스 | 경로 |
 |---|---|
 | `VanguardStagePlayService : BaseStagePlayService` | `Core/Managers/StageServices/` |
-| `VanguardGhostPlayer` / `VanguardReplayRecorder`(POCO) | `Core/Managers/Vanguard/` 또는 StageServices 내부 |
-| `VanguardReplayData` / `VanguardLoadoutSnapshot`(DTO) | `Core/Data/Server/` 또는 `Core/Managers/Vanguard/` |
+| `VanguardGhostSim`(POCO, 벤치마크 재생/시뮬) | `Core/Managers/Vanguard/` |
+| `VanguardLoadoutSnapshot` / `VanguardStageModifierSet`(DTO) | `Core/Data/Server/` 또는 `Core/Managers/Vanguard/` |
+| ~~`VanguardReplayRecorder` / `VanguardReplayData`~~ | ❌ 제거 |
+
+---
+
+## 13. 결정·확인 항목 정리 `[갱신]`
+
+### 13-1. 이번 개정으로 확정된 것
+- **무승부 없음**(C10): 동시 패배·매치 동률 시 단일 승자 강제(§5-8).
+- **120초 = 2차 광폭화(적 이동속도 증가)**(C5): 기획서+명세 일치. 드레인 제거.
+- **결정성 범위**(C2): 내 전투 불요, 상대 벤치마크만. 위치는 아래 13-2로.
+- **비동기 PvP 성립**(§0-1): 상대는 결정론적 벤치마크(고정 기준점), 승패는 내 플레이로 결정·클라 제출.
+
+### 13-2. 서버팀과 결정 (1순위)
+- **상대 벤치마크 계산 위치**(C3): **방안 A(서버 사전계산·전송) 권장** vs 방안 B(클라 시뮬+재시뮬 검증). A면 클라 결정성 0 + 치팅 방어 우위. 서버 전투 시뮬 구현 비용만 판단하면 됨.
+- (방안 B 채택 시에만) 클라/서버 재시뮬 float **허용 오차 밴드** 정의.
+- **봇 클론 운용**(§6-1): 봇을 별도 제작·운용할지(명세 §11·§17), 아니면 Record Clone 유지(명세 §16)만으로 시즌 초반 공백을 메울지. 봇을 쓴다면 **제작 주체 확정 필요**(§17 TBD).
+
+### 13-3. 계약/표기 확인
+- **score_breakdown 표시 계약**(§8): 서버 `score_entries:[{label_key,delta}]` 병행 제공(권장) vs 클라 고정필드→키 매핑 레이어.
+- **표기 `duel`로 확정**: 서버 필드 `dual_token`→`duel_token`, match_type `DUAL`→`DUEL` 정정 요청.
+- **티어 정수 현행화**: EVanguardTier 101~601 확정. 명세 예시의 `205` 등 구버전 5디비전 인코딩 값 정정 필요(마일스톤 SO에서 겪은 "숫자 노출" 재발 방지).
+
+### 13-4. 위키 대조 — 기획서 우선 적용된 차이 (참고)
+> 위키=원작 FTD, 우리는 기획서 우선. 차이는 의도된 변경으로 간주하되 한 번씩 확인 권장.
+
+- **자동순찰 해금**: 위키 Silver 1 / 기획서·티어테이블 **Silver 2** → 기획서 우선.
+- **120초**: 위키 드레인 / 기획서·명세 **이동속도 증가** → 기획서 우선(§5-5).
+- **자동순찰 보상 주기**: 위키 "6시간마다 Quick-Patrol(2배)" / 명세 "최대 8h" → 수치 확인.
+- 위키 확인 수치(참고): extra_reward 시작 10·시간당 +1, 듀얼토큰 4h·구매 최대, 칩 상자 49/30/15/5/1·55/30/15, 칩 #4 4/6/8%·#5 3/4.5/6s·#6 4/6/8%(최대 2/3/4x), 패스 Ember 980다이아·Vanguard $9.99, 성장치 미적용(다이아 제외).
