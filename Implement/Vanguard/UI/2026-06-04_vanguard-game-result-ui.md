@@ -202,13 +202,14 @@ public class VanguardTurretDmgEntry
 
 public class VanguardRoundResult
 {
-    public int roundNumber;     // 1,2,3...
+    public int roundNumber;     // 1~3 (라운드 3 고정)
     public bool selfWon;        // 라운드 결과 (태그 Victory/Defeat)
     public double selfTotalDmg;
     public double opponentTotalDmg;
     public List<VanguardTurretDmgEntry> selfTurrets;      // 3개
     public List<VanguardTurretDmgEntry> opponentTurrets;  // 3개
 }
+// ※ 라운드 수 = 3 고정 (게임 디자인 확정). rounds.Count == 3, 스코어는 0~3 : 0~3.
 
 public class VanguardPlayerSummary
 {
@@ -564,7 +565,8 @@ public class VanguardTurretDmgRow : MonoBehaviour
 | 양 플레이어 요약(공격력/칩수/티어/메달) | 부분 | self=`VanguardLoadoutService`/`RankService`, opponent=매치 데이터(`VanguardMatchData.opponentClone`) |
 | Rewards Obtained | 서버 | 듀얼=승패 무관 Special DS 100 등(위키). 매치=Extra Reward 소비 보상. 서버 결과 응답 기반 |
 | Extra Rewards 15/20 | 서버 | Match 진입권(시간 회복, 위키 9장). 결과 응답의 잔여치 |
-| 스코어 0:3 | 결과 | 라운드 승수 집계 |
+| 스코어 0:3 | 결과 | **3라운드 고정** 승수 합(0~3 : 0~3) |
+| 메달 ◇ | 확정 모델 | 플레이어 현재 티어의 채운 메달 수(점수/100, 티어별 cap). 메달=전투 점수 환산(메달 1개=100점). `VanguardPlayerSummary.medalCount`로 주입 |
 | 터렛 아이콘 | 기존 경로 | `TurretDataSO.spritePath`([[2026-06-03_vanguard-turret-setup-ui]]와 동일) |
 | Discord URL | 설정 | 실제 URL 주입. **외부 링크 이동** — 정책 확인 |
 
@@ -617,8 +619,8 @@ public class VanguardTurretDmgRow : MonoBehaviour
 ## 9. 미해결 / 확인 필요
 
 - [ ] **라운드/터렛 DMG 집계 위치**: 전투 중 유닛별·라운드별 누적 집계 소스 — `VanguardStagePlayService`+녹화 연계([[2026-06-03_vanguard-ingame-battle-ui]] §6 replay). 상대 터렛 DMG가 클론 replay에 포함되는지 확정.
-- [ ] **라운드 수**: 고정(3?) vs 가변 — 스코어 0:3과 라운드 수의 관계(베스트오브?) 확인.
-- [ ] **메달 ◇x1 의미** — 전 문서 공통 미해결.
+- [x] **라운드 수 = 3 고정** (게임 디자인 확정). 스코어 = 3라운드 승수 합(0~3 : 0~3).
+- [x] **메달 ◇ 의미**: 티어 진행도 — 메달 1개=100점, 티어마다 메달 cap이 다르고 cap을 채운 뒤 +100점으로 승급. 메달은 전투 점수에서 환산(점수/100). 결과 화면 플레이어 패널의 ◇는 해당 플레이어 현재 티어의 채운 메달 수(`medalCount`). (게임 디자인 확정 — 티어별 cap 정확 수치만 차팅 대기)
 - [ ] **Card Info 버튼 동작**: 이번 매치 사용 카드/칩 전용 뷰 vs `VanguardInfoPopup` 재사용 — 기획 확정.
 - [ ] **Discord 링크**: 실제 URL + 외부 이동 정책(확인 팝업 필요 여부).
 - [ ] **Extra Rewards 게이지** 시각화: 텍스트만 vs 게이지 바.
