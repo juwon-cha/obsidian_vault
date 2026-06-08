@@ -327,4 +327,5 @@ private async UniTask PlayMatchEndSequenceAsync()
 
 ---
 
-> 작성: 2026-06-04 · 선행 코드 확인: `VanguardInGameUI`(`SetRoundScore`/`_selfHeader`·`_opponentHeader`/`_selfRoundText`·`_opponentRoundText`/`_touchBlocker`/`_testMode`), `VanguardRankingDisplaySlot`(헤더), `VanguardGameResultUI`(3R 후 최종 결과). 스샷(상대 마젠타 ◆/자신 블루 ◆ 점수 밴드) 매핑. 활성/비활성 토글 + show-연출-hide 캡슐화 방식 권장. 본 문서 단독으로 프리팹+스크립트 제작 가능하도록 구성.
+> 작성: 2026-06-04 · 선행 코드 확인: `VanguardInGameUI`(`SetRoundScore`/`_selfHeader`·`_opponentHeader`/`_selfRoundText`·`_opponentRoundText`/`_touchBlocker`/`_testMode`), `VanguardRankingDisplaySlot`(헤더), `VanguardGameResultUI`(3R 후 결과). 스샷(상대 마젠타 ◆/자신 블루 ◆ 점수 밴드) 매핑. 활성/비활성 토글 + show-연출-hide 캡슐화 방식.
+> 보완: 2026-06-04 · 기획 확정 반영 — 배너 중 **전투 일시정지**(Time.timeScale=0, 연출 집중) / 표기 **◆+점수만**(라벨 없음) / **무승부 없음** / 3R 후 **매칭 종료 연출 → 매칭 결과 팝업**(`PlayMatchEndSequenceAsync` 추가).
