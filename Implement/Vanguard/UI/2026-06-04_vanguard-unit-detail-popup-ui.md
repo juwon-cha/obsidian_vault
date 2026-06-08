@@ -14,16 +14,16 @@
 
 ## 0. 결론 먼저 (TL;DR)
 
-| 항목 | 결정 |
-|---|---|
-| 클래스 | 신규 `VanguardUnitDetailPopup : UIBase`(+`ICardDetailDisplay`) + `VanguardChipCardProvider`(더미/서버) |
-| 프리팹 | 신규 `Resources_moved/UI/VanguardUnitDetailPopup.prefab` (`Show<T>` 로드 규약) |
-| 진입 | `VanguardChipSlot`(장착 가능 상태) 클릭 → `Show<VanguardUnitDetailPopup>(unitType)` |
-| 유닛 | 좌측 대형 유닛 이미지 + 이름(수호자) — `CardVisualConfig.GetUnitIconPath(unitType)` |
-| 칩 슬롯 | 유닛 우측 세로 4슬롯 — **`ChipSlotDisplay Variant - EquipmentDetailPopup` 재활용**(`SetState(EChipSlotState, Chip)`) |
-| 카드 8장 | 하단 ScrollView — **`CardInfo`(`UnitCardItem`) 재활용**(`Initialize(UnitCardDisplayData, this)`) |
-| 데이터 | 서버 제공 8장(미연동 → `_useDummy` 더미). 칩 슬롯 상태는 부모 `VanguardChipService`/Provider |
-| 닫기 | **배경(빈 곳) 탭 닫기** (`-빈 곳을 눌러 닫기-`) — 별도 X 없음 |
+| 항목    | 결정                                                                                                        |
+| ----- | --------------------------------------------------------------------------------------------------------- |
+| 클래스   | 신규 `VanguardUnitDetailPopup : UIBase`(+`ICardDetailDisplay`) + `VanguardChipCardProvider`(더미/서버)          |
+| 프리팹   | 신규 `Resources_moved/UI/VanguardUnitDetailPopup.prefab` (`Show<T>` 로드 규약)                                  |
+| 진입    | `VanguardChipSlot`(장착 가능 상태) 클릭 → `Show<VanguardUnitDetailPopup>(unitType)`                               |
+| 유닛    | 좌측 대형 유닛 이미지 + 이름(수호자) — `CardVisualConfig.GetUnitIconPath(unitType)`                                     |
+| 칩 슬롯  | 유닛 우측 세로 4슬롯 — **`ChipSlotDisplay Variant - EquipmentDetailPopup` 재활용**(`SetState(EChipSlotState, Chip)`) |
+| 카드 8장 | 하단 ScrollView — **`CardInfo`(`UnitCardItem`) 재활용**(`Initialize(UnitCardDisplayData, this)`)               |
+| 데이터   | 서버 제공 8장(미연동 → `_useDummy` 더미). 칩 슬롯 상태는 부모 `VanguardChipService`/Provider                                |
+| 닫기    | **배경(빈 곳) 탭 닫기** (`-빈 곳을 눌러 닫기-`) — 별도 X 없음                                                               |
 
 ---
 
