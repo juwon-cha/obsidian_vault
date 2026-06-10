@@ -651,16 +651,17 @@ VanguardChipDropTable.Build(chipDropSOs);
 
 ## 부록 B: 타입/슬롯 매핑 요약
 
-| 시트 컬럼 | Unit 풀 | Equipment 풀 |
-|---|---|---|
-| chipId | int→string | string |
-| 칩 장착 부위 | `EUnitType`(소유유닛) | `EquipmentType`(6부위) |
-| 효과 대상 유닛 | `[소유유닛]` | `List<EUnitType>`(공란=전체) |
-| 등급 | `EChipRarityType` | `EChipRarityType` |
-| 가중치 | poolWeight | poolWeight |
-| `EVanguardChipKind` | Exclusive | General |
-| 패널 | ExclusiveChipPanel | GeneralChipPanel |
-| 슬롯 인덱스 | `row*3+col`(col0=유닛) | `0..5 = (EquipmentType)i` |
+| 시트 컬럼               | Unit 풀               | Equipment 풀               |
+| ------------------- | -------------------- | ------------------------- |
+| chipId              | int→string           | string                    |
+| 칩 장착 부위             | `EUnitType`(소유유닛)    | `EquipmentType`(6부위)      |
+| 효과 대상 유닛            | `[소유유닛]`             | `List<EUnitType>`(공란=전체)  |
+| 등급                  | `EChipRarityType`    | `EChipRarityType`         |
+| 가중치                 | poolWeight           | poolWeight                |
+| `EVanguardChipKind` | Exclusive            | General                   |
+| 패널                  | ExclusiveChipPanel   | GeneralChipPanel          |
+| 슬롯 인덱스              | `row*3+col`(col0=유닛) | `0..5 = (EquipmentType)i` |
+|                     |                      |                           |
 
 ---
 
