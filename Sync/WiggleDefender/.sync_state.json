@@ -14,7 +14,8 @@
     "2": "6영역 병렬분석 완료(core26/server75/ui1-45/ui2-19/raid14+치트13/infra). 엔드포인트57(/guild/), 이벤트30, ServiceAccessor합산~337, ECurrencyType충돌리맵, geuneda프레임워크부재=PathA강제, LoopGridView/Nobi/LowLevelPhysics 동반이슈, SceneManager구조충돌. PHASE2 docs 6개 OUTPUT_DIR저장",
     "3": "Guild_SYNC_PLAN.md 생성. 포트~149파일(Configs28/치트13/DataSheet28 제외), DIRECT42/ADAPTED58/PARTIAL17/인라인3, ServiceAccessor~337, GameEventType~33추가, ManagerDef 5-arg정정, 11STEP(1차메타1-7/2차레이드8-10/치트11), 미결정3",
     "4": "메타코드 이식 완료·컴파일그린. 5커밋(STEP1~6+RED1+컴파일정합)",
-    "5a": "Guild_PREFAB_PACKAGE_LIST.md: 길드메타 프리팹44(전부신규) + SerializeField연결~40 + GUID복구위험4(Marine_Mini_UI/Gacha_Box 누락 등) + Resources_moved경로/Addressable 주의. 레이드 프리팹 2차보류"
+    "5a": "Guild_PREFAB_PACKAGE_LIST.md: 길드메타 프리팹44(전부신규) + SerializeField연결~40 + GUID복구위험4(Marine_Mini_UI/Gacha_Box 누락 등) + Resources_moved경로/Addressable 주의. 레이드 프리팹 2차보류",
+    "5b": "프리팹45 이식(팝업18+슬롯27)+텍스처159+SO2+애니+동반에셋20, GUID리맵1(Gem_Icon), Unity에러0. 커밋 4b46837514. 레이드프리팹 제외, Addressable등록은 에디터위임"
   },
   "worktree_created": true,
   "worktree_path": "/tmp/sync_Guild_1781924940",
@@ -37,12 +38,12 @@
     "commit": "STEP별 직접커밋(컨벤션 type:한글)"
   },
   "editor_tasks": [
-    "BottomTabHUD 프리팹 Guild탭버튼+배열5→6",
-    "길드 프리팹 52 이식(Phase5a/5b)",
-    "DataSheet Clan*14 시트차팅(STEP7)",
-    "ClanGiftIconConfig.asset",
-    "로컬라이즈 guild_*키",
-    "QuestConditionBinder 외부트리거(RED3 TODO)"
+    "Addressable 등록(Unity 재실행시 자동, 18 UI 팝업)",
+    "BottomTabHUD 프리팹 Guild탭버튼+게이팅",
+    "DataSheet Clan*14 시트차팅",
+    "로컬라이즈 키 61",
+    "Gacha_Box/Marine_Mini_UI 누락프리팹(WanderSlot/GiftReward)",
+    "QuestConditionBinder 외부트리거(RED3)"
   ],
   "divergences": [
     "ApplyCurrencyIconScale=항상1(WD스케일데이터부재)",
