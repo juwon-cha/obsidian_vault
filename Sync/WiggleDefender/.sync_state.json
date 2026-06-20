@@ -1,18 +1,19 @@
 {
   "from": "bunker-defense/dev",
-  "from_local": "/tmp/sync_vessel_transcend_a_1780534421",
+  "from_local": "/tmp/sync_Guild_1781924940",
   "to": "/Users/juwon.cha.teamsparta/RiderProjects/WiggleDefender",
-  "system": "vessel_transcend_a",
-  "keys": "UnitSkin,VesselTranscend,vessel_transcend_a",
-  "phase_limit": "4",
-  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-06-03_vessel_transcend_a",
-  "next_phase": "done",
-  "plan_path": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-06-03_vessel_transcend_a/vessel_transcend_a_SYNC_PLAN.md",
+  "system": "Guild",
+  "keys": "Guild,GuildManager,Clan,ClanManager,GuildTypes,GuildData",
+  "phase_limit": "5a",
+  "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-06-20_Guild",
+  "next_phase": "4",
+  "reference_doc": "/Users/juwon.cha.teamsparta/Downloads/Guild_Migration_BD_to_WD.md",
   "completed_phases": {
-    "0": "bunker-defense/dev fetch + worktree 생성, FROM 파일 전수 확인(enum/SO5/currency819/profile58/controller/anim4/tex7/icon2/skin폴더)",
-    "4": "enum 1줄 + JSON 3(UnitSkin5/Currency1/Profile1) + .asset 7(UnitSkin5 costType/costAmount변환, Currency1285 iconScale제거, Profile58 guid재매핑) + DIRECT 리소스(controller/anim4/tex7/icon2/skin폴더). GUID충돌0, dangling0. Unity Importer가 Addressables 6항목 자동등록. 프리팹2개 수동(MANUAL)",
-    "prefab": "프리팹 2개 텍스트머지 완료(Unity종료후): Moving/Small 각 transcend VFX 인스턴스(VFX_Vessel_Loop_Skin2, df592532 인스턴스)+stripped GO/TF 이식, _skinVisuals 2항목, m_AddedGameObjects 등록. 누락 7_VFX 텍스처 2개(171ea565/41bf2fb0) 추가복사. 검증: fileID충돌0, dangling0, 중복앵커0, Unity재실행 import에러0, Moving 인스턴스화로 _skinVisuals2+Skin2존재+MissingScript없음 확인"
+    "0": "bunker-defense/dev fetch + worktree 생성",
+    "1": "FROM 218 cs(Configs28제외=190) 전수, ServiceAccessor413/73·MessageBroker32·Geuneda패키지29, TO Guild0개·호환인프라33종전부존재, WD에 Configurator/StagePlay존재(문서정정), LowLevelPhysicsHelper동반필요, 프리팹52/씬1/텍스처159",
+    "2": "6영역 병렬분석 완료(core26/server75/ui1-45/ui2-19/raid14+치트13/infra). 엔드포인트57(/guild/), 이벤트30, ServiceAccessor합산~337, ECurrencyType충돌리맵, geuneda프레임워크부재=PathA강제, LoopGridView/Nobi/LowLevelPhysics 동반이슈, SceneManager구조충돌. PHASE2 docs 6개 OUTPUT_DIR저장",
+    "3": "Guild_SYNC_PLAN.md 생성. 포트~149파일(Configs28/치트13/DataSheet28 제외), DIRECT42/ADAPTED58/PARTIAL17/인라인3, ServiceAccessor~337, GameEventType~33추가, ManagerDef 5-arg정정, 11STEP(1차메타1-7/2차레이드8-10/치트11), 미결정3"
   },
   "worktree_created": true,
-  "worktree_path": "/tmp/sync_vessel_transcend_a_1780534421"
+  "worktree_path": "/tmp/sync_Guild_1781924940"
 }
