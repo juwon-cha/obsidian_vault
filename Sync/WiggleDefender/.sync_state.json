@@ -6,13 +6,15 @@
   "keys": "Guild,GuildManager,Clan,ClanManager,GuildTypes,GuildData",
   "phase_limit": "5a",
   "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-06-20_Guild",
-  "next_phase": "4-COMPILE",
+  "next_phase": "done",
   "reference_doc": "/Users/juwon.cha.teamsparta/Downloads/Guild_Migration_BD_to_WD.md",
   "completed_phases": {
     "0": "bunker-defense/dev fetch + worktree 생성",
     "1": "FROM 218 cs(Configs28제외=190) 전수, ServiceAccessor413/73·MessageBroker32·Geuneda패키지29, TO Guild0개·호환인프라33종전부존재, WD에 Configurator/StagePlay존재(문서정정), LowLevelPhysicsHelper동반필요, 프리팹52/씬1/텍스처159",
     "2": "6영역 병렬분석 완료(core26/server75/ui1-45/ui2-19/raid14+치트13/infra). 엔드포인트57(/guild/), 이벤트30, ServiceAccessor합산~337, ECurrencyType충돌리맵, geuneda프레임워크부재=PathA강제, LoopGridView/Nobi/LowLevelPhysics 동반이슈, SceneManager구조충돌. PHASE2 docs 6개 OUTPUT_DIR저장",
-    "3": "Guild_SYNC_PLAN.md 생성. 포트~149파일(Configs28/치트13/DataSheet28 제외), DIRECT42/ADAPTED58/PARTIAL17/인라인3, ServiceAccessor~337, GameEventType~33추가, ManagerDef 5-arg정정, 11STEP(1차메타1-7/2차레이드8-10/치트11), 미결정3"
+    "3": "Guild_SYNC_PLAN.md 생성. 포트~149파일(Configs28/치트13/DataSheet28 제외), DIRECT42/ADAPTED58/PARTIAL17/인라인3, ServiceAccessor~337, GameEventType~33추가, ManagerDef 5-arg정정, 11STEP(1차메타1-7/2차레이드8-10/치트11), 미결정3",
+    "4": "메타코드 이식 완료·컴파일그린. 5커밋(STEP1~6+RED1+컴파일정합)",
+    "5a": "Guild_PREFAB_PACKAGE_LIST.md: 길드메타 프리팹44(전부신규) + SerializeField연결~40 + GUID복구위험4(Marine_Mini_UI/Gacha_Box 누락 등) + Resources_moved경로/Addressable 주의. 레이드 프리팹 2차보류"
   },
   "worktree_created": true,
   "worktree_path": "/tmp/sync_Guild_1781924940",
@@ -24,7 +26,8 @@
     "STEP4": "완료(2에이전트): Components22+루트21, ServiceAccessor192·MessageBroker67 변환, IServerService/ICurrencyService→구체매니저 리맵, 잔존0. 채팅/레이드UI참조 TODO격리",
     "STEP5": "완료: 채팅9(Chat/+Slots/)+LoopGridView.InvalidateRowHeightCache 백포팅+GuildLobbyUI채팅배선복원+ClanGiftIconConfigSO.cs. 잔존0. 선물아이콘.asset=에디터작업",
     "STEP6": "완료: BottomTabHUD/ContentUnlock/RedDotManager(partial+노드+구독). RedDotManager partial키워드 수정",
-    "COMPILE": "진행중(fix-loop): 1차컴파일 27에러(EDailyQuestCondition/EAcquisitionRouteType 누락값+TextByteValidator/DamageTextFormat/localizeKey/SetupOrHide/ApplyCurrencyIconScale/GetEquippedMinionLoadout 동반인프라+GuildSearchComponent IServerService). warning50은 기존"
+    "COMPILE": "그린 확인(0에러). enum정합(EDailyQuestCondition4/EAcquisitionRouteType.Clan), 동반인프라(TextByteValidator/ItemDisplayExtensions/ServerResponse.localizeKey/ResourceUtility.ApplyCurrencyIconScale/MinionManager.GetEquippedMinionLoadout)",
+    "COMMITS": "STEP1=18201dc411, 백본=c0ed44cc53, 매니저+파사드=711ec8c194, UI+채팅=8053bedeba, 진입점+정합=36ee2540d2"
   },
   "decisions": {
     "raid": "2차분리(1차메타STEP1-7)",
@@ -32,5 +35,17 @@
     "currency": "리맵1302/1303+명시매핑(서버정수통신 미확인TODO)",
     "datasheet": "FROM자동생성 실클래스 이식,데이터는 사용자차팅",
     "commit": "STEP별 직접커밋(컨벤션 type:한글)"
-  }
+  },
+  "editor_tasks": [
+    "BottomTabHUD 프리팹 Guild탭버튼+배열5→6",
+    "길드 프리팹 52 이식(Phase5a/5b)",
+    "DataSheet Clan*14 시트차팅(STEP7)",
+    "ClanGiftIconConfig.asset",
+    "로컬라이즈 guild_*키",
+    "QuestConditionBinder 외부트리거(RED3 TODO)"
+  ],
+  "divergences": [
+    "ApplyCurrencyIconScale=항상1(WD스케일데이터부재)",
+    "대여미니언전투력=길드최종공격보너스제외(WD산식)"
+  ]
 }
