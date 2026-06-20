@@ -6,7 +6,7 @@
   "keys": "Guild,GuildManager,Clan,ClanManager,GuildTypes,GuildData",
   "phase_limit": "5a",
   "output_dir": "/Users/juwon.cha.teamsparta/Documents/obsidian_vault/Sync/2026-06-20_Guild",
-  "next_phase": "4",
+  "next_phase": "4-COMPILE",
   "reference_doc": "/Users/juwon.cha.teamsparta/Downloads/Guild_Migration_BD_to_WD.md",
   "completed_phases": {
     "0": "bunker-defense/dev fetch + worktree 생성",
@@ -15,5 +15,22 @@
     "3": "Guild_SYNC_PLAN.md 생성. 포트~149파일(Configs28/치트13/DataSheet28 제외), DIRECT42/ADAPTED58/PARTIAL17/인라인3, ServiceAccessor~337, GameEventType~33추가, ManagerDef 5-arg정정, 11STEP(1차메타1-7/2차레이드8-10/치트11), 미결정3"
   },
   "worktree_created": true,
-  "worktree_path": "/tmp/sync_Guild_1781924940"
+  "worktree_path": "/tmp/sync_Guild_1781924940",
+  "phase4_steps": {
+    "STEP1": "완료+커밋 18201dc411",
+    "STEP2": "완료(미커밋, 백본으로 STEP3와 묶음): 147파일 잔존변환0",
+    "STEP3": "완료(grep0): 모듈18+GuildManager7+RedDot, ServiceAccessor53/MessageBroker38→EventManager, ITick→Update재배선, Managers등록. RED1(서버라우팅) 해결중, RED3(QuestConditionBinder 외부트리거)=TODO스텁격리, RED4(RedDot본체구독)=STEP6",
+    "RED1": "완료: ServerManager partial+façade57+GuildServerService보유, GuildManager필드 ServerManager화. GuildManager.Raid의 GuildRaidLobbyUI참조 TODO처리(2차)",
+    "STEP4": "완료(2에이전트): Components22+루트21, ServiceAccessor192·MessageBroker67 변환, IServerService/ICurrencyService→구체매니저 리맵, 잔존0. 채팅/레이드UI참조 TODO격리",
+    "STEP5": "완료: 채팅9(Chat/+Slots/)+LoopGridView.InvalidateRowHeightCache 백포팅+GuildLobbyUI채팅배선복원+ClanGiftIconConfigSO.cs. 잔존0. 선물아이콘.asset=에디터작업",
+    "STEP6": "완료: BottomTabHUD/ContentUnlock/RedDotManager(partial+노드+구독). RedDotManager partial키워드 수정",
+    "COMPILE": "진행중(fix-loop): 1차컴파일 27에러(EDailyQuestCondition/EAcquisitionRouteType 누락값+TextByteValidator/DamageTextFormat/localizeKey/SetupOrHide/ApplyCurrencyIconScale/GetEquippedMinionLoadout 동반인프라+GuildSearchComponent IServerService). warning50은 기존"
+  },
+  "decisions": {
+    "raid": "2차분리(1차메타STEP1-7)",
+    "scene": "전용GuildBossScene이식",
+    "currency": "리맵1302/1303+명시매핑(서버정수통신 미확인TODO)",
+    "datasheet": "FROM자동생성 실클래스 이식,데이터는 사용자차팅",
+    "commit": "STEP별 직접커밋(컨벤션 type:한글)"
+  }
 }
